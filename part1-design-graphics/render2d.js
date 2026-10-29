@@ -742,9 +742,11 @@
     }
     ctx.fillStyle = curCol; ctx.fill();
     // тротуар, бордюры, дорога, набережная
-    ctx.fillStyle = '#bdb5a8'; ctx.beginPath(); band(-7.5, -2.75, 0, zn, zf); ctx.fill();
-    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); band(-2.75, -2.45, 0, zn, zf); band(2.45, 2.75, 0, zn, zf); ctx.fill();
-    ctx.fillStyle = '#4a4b55'; ctx.beginPath(); band(-2.45, 2.45, 0, zn, zf); ctx.fill();
+    // тестовый режим: слева от полос игрока — дорожка соперников
+    const roadL = g.rivalLane ? D.RIVAL_LANE.left : -2.45;
+    ctx.fillStyle = '#bdb5a8'; ctx.beginPath(); band(-7.5, roadL - 0.3, 0, zn, zf); ctx.fill();
+    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); band(roadL - 0.3, roadL, 0, zn, zf); band(2.45, 2.75, 0, zn, zf); ctx.fill();
+    ctx.fillStyle = '#4a4b55'; ctx.beginPath(); band(roadL, 2.45, 0, zn, zf); ctx.fill();
     ctx.fillStyle = '#ab9f95'; ctx.beginPath(); band(2.75, 6.2, 0, zn, zf); ctx.fill();
     // полосы движения (лёгкая текстура асфальта и плитки)
     ctx.beginPath();
@@ -769,11 +771,12 @@
     // Лужники: беговое покрытие с белыми линиями вместо асфальта
     const ta = Math.max(zn, D.kmToZ(D.TRACK_KM[0])), tb = Math.min(zf, D.kmToZ(D.TRACK_KM[1]));
     if (tb > ta) {
-      ctx.fillStyle = '#b4452f'; ctx.beginPath(); band(-2.45, 2.45, 0, ta, tb); ctx.fill();
+      ctx.fillStyle = '#b4452f'; ctx.beginPath(); band(roadL, 2.45, 0, ta, tb); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath();
       for (const lx of [-2.28, -0.725, 0.725, 2.28]) band(lx - 0.03, lx + 0.03, 0, ta, Math.min(tb, cam.z + 160));
       ctx.fill();
     }
+    if (g.rivalLane) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); band(-2.52, -2.38, 0, zn, Math.min(zf, cam.z + 160)); ctx.fill(); }
     // гранитный парапет
     ctx.fillStyle = '#8c7f78'; ctx.beginPath(); vband(6.2, 0, 1.0, zn, zf); ctx.fill();
     ctx.fillStyle = '#c0b4aa'; ctx.beginPath(); band(6.2, 6.9, 1.0, zn, zf); ctx.fill();

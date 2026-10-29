@@ -14,6 +14,10 @@
   const clubRoster = () => ({ participants: D.clubParticipants(), mode: 'club', stats: null, file: '' });
   const demoRoster = () => ({ participants: D.demoParticipants(), mode: 'demo', stats: null, file: '' });
   let roster = clubRoster();
+  // тестовый режим: соперники на своей дорожке слева (переключатель на старте или ?lane=4 в адресе)
+  const LANE_KEY = 'dusty.rivalLane';
+  let rivalLane = /[?&]lane=4(&|$)/.test(G.location.search);
+  try { if (!rivalLane) rivalLane = G.localStorage.getItem(LANE_KEY) === '1'; } catch (e) { /* без хранилища */ }
   const reduceMQ = G.matchMedia ? G.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /* ---------- участники ---------- */
@@ -72,6 +76,11 @@
   });
   $('btnDemo').addEventListener('click', () => { roster = demoRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
   $('btnClub').addEventListener('click', () => { roster = clubRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('optLane').checked = rivalLane;
+  $('optLane').addEventListener('change', (e) => {
+    rivalLane = e.target.checked;
+    try { G.localStorage.setItem(LANE_KEY, rivalLane ? '1' : '0'); } catch (x) { /* без сохранения */ }
+  });
 
   /* ---------- звук ---------- */
   function soundUI() {
@@ -97,9 +106,9 @@
 
   function startRun() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0);
+    g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0, { rivalLane });
     paused = false; finishDelay = 0; hudT = 0;
-    $('toasts').textContent = '';
+    $('toasts').textContent = ''; clearBig();
     state = 'countdown'; countT = 0; countShown = -1;
     show(null);
     document.body.classList.add('playing');
@@ -115,7 +124,7 @@
     if (!p) last = performance.now();
   }
   function toMenu() {
-    state = 'menu'; paused = false; g = null;
+    state = 'menu'; paused = false; g = null; clearBig();
     document.body.classList.remove('playing');
     $('countdown').classList.remove('show');
     A.updateMusic(0); A.setPaused(false);
@@ -182,6 +191,40 @@
     setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 2350);
   }
 
+  // Крупное предупреждение о запасе: всплывает по центру и улетает с уменьшением в свою плашку под HUD.
+  // Несколько подряд — по очереди: следующее появляется, когда предыдущее уже улетает.
+  const bigQueue = [];
+  let bigBusy = false;
+  function bigWarn(res, out) { bigQueue.push({ res, out }); if (!bigBusy) nextBig(); }
+  function clearBig() {
+    bigQueue.length = 0; bigBusy = false;
+    for (const el of document.querySelectorAll('.bigwarn')) el.remove();
+  }
+  function nextBig() {
+    const it = bigQueue.shift();
+    if (!it || !g || state === 'done' || state === 'menu') { bigBusy = false; return; }
+    // пока ждало очереди, запас уже пополнили (или он кончился — тогда покажем «нет»)
+    if (it.out ? g[it.res] > 0 : !g.warn[it.res] || g[it.res] <= 0) return nextBig();
+    bigBusy = true;
+    const w = { gel: ['ГЕЛЬ', 'ГЕЛЯ', 'гель'], drink: ['ПИТЬЁ', 'ПИТЬЯ', 'питьё'], food: ['ЕДА', 'ЕДЫ', 'еду'] }[it.res];
+    const el = document.createElement('div');
+    el.className = 'bigwarn' + (it.out ? ' out' : '');
+    const b = document.createElement('b'); b.textContent = it.out ? 'НЕТ ' + w[1] : w[0] + ' — 5 СЕКУНД'; el.appendChild(b);
+    const s = document.createElement('span'); s.textContent = it.out ? 'каденс −' + D.CAD.empty + ' — подбери ' + w[2] : 'скоро закончится — возьми ' + w[2]; el.appendChild(s);
+    document.body.appendChild(el);
+    // цель полёта — центр плашки этого запаса; анимацию запускаем сразу, без ожидания кадра (на слабых устройствах кадр бывает долгим)
+    const pill = $({ gel: 'wGel', drink: 'wDrink', food: 'wFood' }[it.res]);
+    const r = el.getBoundingClientRect(), p = pill.getBoundingClientRect();
+    if (p.width) {
+      el.style.setProperty('--tx', (p.left + p.width / 2 - (r.left + r.width / 2)) + 'px');
+      el.style.setProperty('--ty', (p.top + p.height / 2 - (r.top + r.height / 2)) + 'px');
+    }
+    el.classList.add('go');
+    el.addEventListener('animationend', () => el.remove());
+    setTimeout(() => el.remove(), 6000); // если анимация так и не запустилась
+    setTimeout(nextBig, 1300);
+  }
+
   function handleEvents() {
     for (const e of g.events) {
       switch (e.kind) {
@@ -199,8 +242,8 @@
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
         case 'km': toast(e.title, e.sub, 'info'); A.play('bonus'); break;
-        case 'warn': A.play('tick'); break;
-        case 'empty': toast('НЕТ: ' + D.SUPPLY_NAME[e.res].toUpperCase(), 'каденс −' + D.CAD.empty + ' — подбери ' + (e.res === 'gel' ? 'гель' : e.res === 'drink' ? 'питьё' : 'еду'), 'bad'); break;
+        case 'warn': updateHUD(true); bigWarn(e.res, false); A.play('tick'); break;
+        case 'empty': updateHUD(true); bigWarn(e.res, true); A.play('hit'); break;
         case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
@@ -228,6 +271,7 @@
     $('fHits').textContent = 'Столкновения: ' + (ht || 'ни одного') + (g.stats.shield ? '; пейсер защитил ×' + g.stats.shield : '') + '.';
     $('fNote').textContent = (g.total > 1 ? 'Место считается по итоговому времени с бонусами и штрафами. ' : 'Соперников нет — ты бежишь один. ') +
       (roster.mode === 'demo' ? 'Соперники — демонстрационный список вымышленных бегунов.' : roster.mode === 'club' ? 'Соперники — участники клуба «Пыльные Гантели».' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (g.rivalLane ? ' Тестовый режим: соперники бежали по своей дорожке.' : '') +
       (g.starsOn ? ' Звёзд бега позади: ' + g.stats.stars + ' из ' + D.STARS.length + ' — в место они не входят.' : '') +
       ' Трасса — художественная адаптация, не GPS-копия.';
     show('finish');

@@ -72,6 +72,25 @@ body.playing #hud { display: flex; }
 #warns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .warn { display: none; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9px; line-height: 1.3; background: #ffd23f; color: var(--ink); }
 .warn.out { background: #ff5a5a; color: #fff; }
+/* крупное предупреждение о запасе: всплывает по центру и улетает с уменьшением в плашку под HUD */
+.bigwarn { position: fixed; left: 50%; top: 42%; z-index: 7; transform: translate(-50%, -50%) scale(0.6); opacity: 0; text-align: center; pointer-events: none;
+  padding: 14px 22px 16px; border-radius: 22px; background: #ffd23f; color: var(--ink); box-shadow: 0 10px 40px rgba(0,0,0,0.35); width: max-content; max-width: 92vw; }
+.bigwarn b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(26px, 8.5vw, 52px); line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance; }
+.bigwarn span { display: block; font-size: clamp(13px, 3.6vw, 18px); font-weight: 700; margin-top: 4px; }
+.bigwarn.out { background: #ff5a5a; color: #fff; }
+.bigwarn.go { animation: bigwarn 2.4s linear forwards; }
+/* всплывает, ~0,9 с держится, затем с разгоном улетает с уменьшением в свою плашку (--tx/--ty задаёт main.js) */
+@keyframes bigwarn {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); animation-timing-function: ease-out; }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  55% { opacity: 1; transform: translate(-50%, -50%) scale(1); animation-timing-function: ease-in; }
+  92% { opacity: 0.95; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.22); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.2); }
+}
+.opt { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.opt input { width: 20px; height: 20px; accent-color: var(--lime); flex-shrink: 0; }
+.opt .beta { font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: var(--lime); color: var(--ink); }
 .warn.show { display: block; }
 
 /* ---------- управление ---------- */
@@ -166,6 +185,8 @@ details.part[open] summary::after { content: " ▴"; }
   .toast { animation: toastR 2.3s linear forwards; }
   @keyframes toastR { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
   .bar i { transition: none; }
+  .bigwarn.go { animation: bigwarnR 2.4s linear forwards; }
+  @keyframes bigwarnR { 0% { opacity: 0; transform: translate(-50%, -50%); } 10%, 70% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -50%); } }
 }
 </style>
 </head>
@@ -240,6 +261,7 @@ details.part[open] summary::after { content: " ▴"; }
       <button class="btn-main" id="btnStart">На старт</button>
       <button class="btn-sec" id="btnSoundStart" aria-pressed="false"></button>
     </div>
+    <label class="opt" for="optLane"><input type="checkbox" id="optLane"><span>Соперники бегут по своей дорожке слева</span><em class="beta">тест</em></label>
     <details class="part" id="partBox">
       <summary id="partSummary">Соперники</summary>
       <p id="partStatus"></p>

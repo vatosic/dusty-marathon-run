@@ -47,24 +47,41 @@
       if (rep) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * rep[0], uv.getY(i) * rep[1]); }
       const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m); return m;
     };
-    strip(-7.5, -2.75, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [3, len / 1.6]);
+    // тестовый режим: слева от трёх полос игрока — отдельная дорожка соперников, тротуар уже
+    const RL = !!g.rivalLane, roadL = RL ? D.RIVAL_LANE.left : -2.45;
+    strip(-7.5, roadL - 0.3, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [(roadL - 0.3 + 7.5) / 1.6, len / 1.6]);
     strip(2.75, 6.2, 0.06, lambert('#ffffff', { map: T.tiles('#b2a69c', 'rgba(70,60,55,0.35)') }), [2, len / 1.6]);
     // дорога: асфальт до Лужников и после, между ними — беговое покрытие (куски встык, без наложения)
     {
       const ta = D.kmToZ(D.TRACK_KM[0]), tb = D.kmToZ(D.TRACK_KM[1]);
-      const road = (za, zb, mat, repY) => {
-        const geo = new THREE.PlaneGeometry(4.9, zb - za).rotateX(-PI / 2).translate(0, 0, -(za + zb) / 2);
-        const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * repY);
+      // кусок покрытия: x0…x1 по ширине, u0…u1 — какой участок текстуры (у дорожки соперников — без разметки полос)
+      const road = (za, zb, mat, repY, x0, x1, u0, u1) => {
+        const geo = new THREE.PlaneGeometry(x1 - x0, zb - za).rotateX(-PI / 2).translate((x0 + x1) / 2, 0, -(za + zb) / 2);
+        const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), uv.getY(i) * repY);
         const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m);
       };
-      const asph = lambert('#ffffff', { map: T.asphalt() });
-      road(z0, ta, asph, (ta - z0) / 8); road(tb, z1, asph, (z1 - tb) / 8);
-      road(ta, tb, lambert('#ffffff', { map: T.tartan() }), (tb - ta) / 6);
+      const asph = lambert('#ffffff', { map: T.asphalt() }), tart = lambert('#ffffff', { map: T.tartan() });
+      const lanes = (x0, x1, u0, u1) => {
+        road(z0, ta, asph, (ta - z0) / 8, x0, x1, u0, u1); road(tb, z1, asph, (z1 - tb) / 8, x0, x1, u0, u1);
+        road(ta, tb, tart, (tb - ta) / 6, x0, x1, u0, u1);
+      };
+      lanes(-2.45, 2.45, 0, 1);
+      if (RL) lanes(roadL, -2.45, 0.4, 0.6);
       const lineM = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-      for (const zz of [ta, tb]) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 0.35).rotateX(-PI / 2), lineM); ln.position.set(0, 0.008, Z(zz)); root.add(ln); }
+      for (const zz of [ta, tb]) root.add(boxAt(unitBox, lineM, roadL, 2.45, 0, 0.015, zz - 0.17, zz + 0.17));
     }
     const curbMat = lambert('#dcd5c8');
-    for (const [a, b] of [[-2.75, -2.45], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
+    for (const [a, b] of [[roadL - 0.3, roadL], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
+    if (RL) {
+      // разделитель: сплошная белая линия и конусы каждые 6 м
+      root.add(boxAt(unitBox, new THREE.MeshBasicMaterial({ color: '#ffffff' }), -2.52, -2.38, 0, 0.012, z0, z1));
+      const n = Math.floor((z1 - z0) / 6), mt = new THREE.Matrix4();
+      const cone = new THREE.InstancedMesh(new THREE.ConeGeometry(0.16, 0.5, 12).translate(0, 0.25, 0), lambert('#ff7a1a'), n);
+      const band = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.105, 0.125, 0.09, 12).translate(0, 0.27, 0), lambert('#ffffff'), n);
+      for (let i = 0; i < n; i++) { mt.makeTranslation(-2.45, 0, Z(z0 + i * 6 + 3)); cone.setMatrixAt(i, mt); band.setMatrixAt(i, mt); }
+      for (const im of [cone, band]) { im.frustumCulled = false; root.add(im); }
+      cone.castShadow = true;
+    }
     // гранитный парапет
     {
       const gt = T.granite().clone(); gt.needsUpdate = true; gt.repeat.set(len / 4, 1);

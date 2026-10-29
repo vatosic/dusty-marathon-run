@@ -194,7 +194,8 @@
   };
 
   /* ---------------- Декорации ---------------- */
-  D.buildScenery = function (seed) {
+  D.buildScenery = function (seed, opts) {
+    const rivalLane = !!(opts && opts.rivalLane); // слева от дороги — дорожка соперников: деревья и фонари отходят
     const r = mulberry32(seed ^ 0x9e3779b9);
     const kz = D.kmToZ, km = D.zToKm;
     const sc = { buildings: [], trees: [], lamps: [], fans: [], boats: [], bridges: [], landmarks: [], walkers: [], towers: [], posts: [] };
@@ -233,11 +234,11 @@
     for (let z = -20; z < L + 160; z += 7 + r() * 7) {
       const k = km(Math.max(0, z));
       const dist = D.DISTRICTS[D.findDistrict(Math.min(k, 42.19))];
-      if (r() < dist.trees) sc.trees.push({ z, x: -4.4 - r() * 1.4, kind: r() < 0.25 ? 'poplar' : 'round', h: 4.5 + r() * 3, tone: r() });
+      if (r() < dist.trees) sc.trees.push({ z, x: rivalLane ? -4.9 - r() * 1.2 : -4.4 - r() * 1.4, kind: r() < 0.25 ? 'poplar' : 'round', h: 4.5 + r() * 3, tone: r() });
     }
     for (let z = 4; z < L + 160; z += 22) {
       sc.lamps.push({ z, x: 5.95, side: 1 });
-      if ((z / 22) % 2 < 1) sc.lamps.push({ z: z + 11, x: -3.3, side: -1 });
+      if ((z / 22) % 2 < 1) sc.lamps.push({ z: z + 11, x: rivalLane ? -4.6 : -3.3, side: -1 });
     }
     for (let z = 0; z < L + 160; z += 9) sc.posts.push({ z });
 
@@ -305,7 +306,9 @@
   };
 
   /* ---------------- Соперники ---------------- */
-  D.initRivals = function (participants, seed) {
+  // место соперника на своей дорожке: постоянный сдвиг, чтобы шли не гуськом, а по двое
+  const laneX = (r) => D.RIVAL_LANE.x + (r() - 0.5) * D.RIVAL_LANE.spread;
+  D.initRivals = function (participants, seed, rivalLane) {
     const r = mulberry32(seed ^ 0x51ed27);
     const N = participants.length;
     return participants.map((p, i) => {
@@ -314,7 +317,7 @@
       const T = 128 + Math.pow(r(), 0.85) * 170; // секунды игры до финиша (2:08:00 … 4:58:00)
       return { id: p.id, name: p.name, z0, T, bumpT: 0, bumpDir: 1, v: (L - z0) / T, lane: Math.floor(r() * 3), x: 0, z: z0, ahead: true, passed: false,
         phase: r() * 6.28, look: D.randomLook(r, false), dodge: 0 };
-    }).map((rv) => { rv.x = LANES[rv.lane]; return rv; });
+    }).map((rv) => { rv.laneX = laneX(r); rv.x = rivalLane ? rv.laneX : LANES[rv.lane]; return rv; });
   };
   D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * t);
 
@@ -332,9 +335,9 @@
       const fr = STAR_F[st.kind], f = fr[0] + r() * (fr[1] - fr[0]);
       const d = Math.max(180, (1 - f) * C);
       const v = Math.max(vAvg * 0.3, vAvg * (C - d) / C);
-      const lane = Math.floor(r() * 3);
+      const lane = Math.floor(r() * 3), lx = laneX(r);
       g.rivals.push({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, z0: g.pz + d - v * g.t, v, T: 0,
-        bumpT: 0, bumpDir: 1, lane, x: LANES[lane], z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
+        bumpT: 0, bumpDir: 1, lane, x: g.rivalLane ? lx : LANES[lane], laneX: lx, z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
         look: { skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
           shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false } });
     });
@@ -343,11 +346,13 @@
   }
 
   /* ---------------- Состояние забега ---------------- */
-  D.newGame = function (participants, seed) {
+  // opts.rivalLane — тестовый режим: соперники на отдельной дорожке слева
+  D.newGame = function (participants, seed, opts) {
+    const rivalLane = !!(opts && opts.rivalLane);
     seed = seed >>> 0;
     const plan = D.buildPlan(seed);
     return {
-      seed, plan, scenery: D.buildScenery(seed), rivals: D.initRivals(participants, seed),
+      seed, plan, scenery: D.buildScenery(seed, { rivalLane }), rivals: D.initRivals(participants, seed, rivalLane), rivalLane,
       t: 0, pz: 0, px: 0, lane: 1, vx: 0, y: 0, vy: 0, speed: 0,
       cad: D.CAD.start, cadEff: D.CAD.start, gel: D.SUPPLY.gel, drink: D.SUPPLY.drink, food: D.SUPPLY.food, hr: 92,
       bonus: 0, penalty: 0, boostT: 0, boostKind: '', pacerT: 0, invulnT: 0, hitPen: 0, hitPenT: 0,
@@ -497,6 +502,7 @@
       const dz = rv.z - g.pz;
       if (dz > -12 && dz < 160) {
         rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
+        if (g.rivalLane) { rv.x = rv.laneX; continue; } // своя дорожка: ни препятствий, ни игрока
         // обход препятствий: ищем ряд впереди
         let desired = rv.lane;
         const row = D.rowNear(rows, rv.z, 1, 12);

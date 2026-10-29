@@ -309,6 +309,30 @@ for (const mode of ['smart', 'passive']) {
   ok(g.total === 101 && g.finalPos >= 1 && g.finalPos <= 101, `звёзды не входят в место (${mode})`);
 }
 
+// тестовый режим: соперники на своей дорожке слева — не заходят в полосы игрока и не сталкиваются с ним
+{
+  const lo = D.RIVAL_LANE.left, hi = -2.45;
+  const sc = D.buildScenery(5, { rivalLane: true });
+  ok(sc.lamps.filter((l) => l.side < 0).every((l) => l.x < lo - 0.3) && sc.trees.every((t) => t.x < lo - 0.3), 'дорожка соперников: фонари и деревья на тротуаре');
+  for (const mode of ['smart', 'passive']) {
+    const g = D.newGame(D.clubParticipants(), mode === 'smart' ? 991 : 992, { rivalLane: true });
+    let outside = 0, steps = 0;
+    while (!g.finished && steps < 60 * 900) {
+      bot(g, mode); D.update(g, 1 / 60); steps++; g.events.length = 0;
+      if (steps % 30 === 0) for (const rv of g.rivals) { const dz = rv.z - g.pz; if (dz > -12 && dz < 170 && (rv.x < lo || rv.x > hi)) outside++; }
+    }
+    ok(outside === 0, `дорожка соперников: никто не выбегает в полосы игрока (${mode})`);
+    ok(!g.stats.hits.runner, `дорожка соперников: столкновений с бегунами нет (${mode})`);
+    ok(g.rivals.filter((rv) => rv.star).length === D.STARS.length, `дорожка соперников: звёзды тоже на ней (${mode})`);
+  }
+  for (let s = 1; s <= 20; s++) {
+    const g = D.newGame(D.demoParticipants(), s * 1013, { rivalLane: true });
+    let steps = 0;
+    while (!g.finished && steps < 60 * 900) { D.update(g, 1 / 60); steps++; g.events.length = 0; }
+    ok(g.result > 4 * 3600, `дорожка соперников: без управления дольше 4:00:00 (seed ${s}: ${fmt(g.result || 0)})`);
+  }
+}
+
 // без управления марафон всегда дольше 4:00:00 — проверяем шире, чем в таблице
 for (let s = 9; s <= 40; s++) {
   const g = D.newGame(D.demoParticipants(), s * 1013);
@@ -316,7 +340,7 @@ for (let s = 9; s <= 40; s++) {
   while (!g.finished && steps < 60 * 900) { D.update(g, 1 / 60); steps++; g.events.length = 0; }
   ok(g.finished && g.result > 4 * 3600, `без управления дольше 4:00:00 (seed ${s}: ${fmt(g.result || 0)})`);
 }
-function fmtMS(s) { return Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'); }
+function fmtMS(s) { s = Math.round(s); return Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'); }
 function fmt(s) { s = Math.round(s); return Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
 
 console.log(`\n${passes} проверок пройдено, ${fails} не пройдено`);

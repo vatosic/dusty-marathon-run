@@ -72,6 +72,25 @@ body.playing #hud { display: flex; }
 #warns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .warn { display: none; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9px; line-height: 1.3; background: #ffd23f; color: var(--ink); }
 .warn.out { background: #ff5a5a; color: #fff; }
+/* крупное предупреждение о запасе: всплывает по центру и улетает с уменьшением в плашку под HUD */
+.bigwarn { position: fixed; left: 50%; top: 42%; z-index: 7; transform: translate(-50%, -50%) scale(0.6); opacity: 0; text-align: center; pointer-events: none;
+  padding: 14px 22px 16px; border-radius: 22px; background: #ffd23f; color: var(--ink); box-shadow: 0 10px 40px rgba(0,0,0,0.35); width: max-content; max-width: 92vw; }
+.bigwarn b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(26px, 8.5vw, 52px); line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance; }
+.bigwarn span { display: block; font-size: clamp(13px, 3.6vw, 18px); font-weight: 700; margin-top: 4px; }
+.bigwarn.out { background: #ff5a5a; color: #fff; }
+.bigwarn.go { animation: bigwarn 2.4s linear forwards; }
+/* всплывает, ~0,9 с держится, затем с разгоном улетает с уменьшением в свою плашку (--tx/--ty задаёт main.js) */
+@keyframes bigwarn {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); animation-timing-function: ease-out; }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  55% { opacity: 1; transform: translate(-50%, -50%) scale(1); animation-timing-function: ease-in; }
+  92% { opacity: 0.95; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.22); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.2); }
+}
+.opt { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.opt input { width: 20px; height: 20px; accent-color: var(--lime); flex-shrink: 0; }
+.opt .beta { font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: var(--lime); color: var(--ink); }
 .warn.show { display: block; }
 
 /* ---------- управление ---------- */
@@ -166,6 +185,8 @@ details.part[open] summary::after { content: " ▴"; }
   .toast { animation: toastR 2.3s linear forwards; }
   @keyframes toastR { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
   .bar i { transition: none; }
+  .bigwarn.go { animation: bigwarnR 2.4s linear forwards; }
+  @keyframes bigwarnR { 0% { opacity: 0; transform: translate(-50%, -50%); } 10%, 70% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -50%); } }
 }
 </style>
 </head>
@@ -240,6 +261,7 @@ details.part[open] summary::after { content: " ▴"; }
       <button class="btn-main" id="btnStart">На старт</button>
       <button class="btn-sec" id="btnSoundStart" aria-pressed="false"></button>
     </div>
+    <label class="opt" for="optLane"><input type="checkbox" id="optLane"><span>Соперники бегут по своей дорожке слева</span><em class="beta">тест</em></label>
     <details class="part" id="partBox">
       <summary id="partSummary">Соперники</summary>
       <p id="partStatus"></p>
@@ -308,6 +330,8 @@ details.part[open] summary::after { content: " ▴"; }
   D.TIME_SCALE = 60;           // 1 секунда игры = 1 минута марафона (4:04 игры → 4:04:00)
   D.RECORD_SEC = 2 * 3600;     // предел: быстрее 2:00:00 финишировать нельзя (рекорд-лимит)
   D.LANES = [-1.45, 0, 1.45];
+  // Тестовый режим: соперники бегут по отдельной четвёртой дорожке слева (−3,95…−2,45), не заходя в полосы игрока
+  D.RIVAL_LANE = { x: -3.2, left: -3.95, spread: 0.8 };
   D.kmToZ = (km) => (km / D.KM_TOTAL) * D.WORLD_LEN;
   D.zToKm = (z) => (z / D.WORLD_LEN) * D.KM_TOTAL;
 
@@ -860,7 +884,8 @@ details.part[open] summary::after { content: " ▴"; }
   };
 
   /* ---------------- Декорации ---------------- */
-  D.buildScenery = function (seed) {
+  D.buildScenery = function (seed, opts) {
+    const rivalLane = !!(opts && opts.rivalLane); // слева от дороги — дорожка соперников: деревья и фонари отходят
     const r = mulberry32(seed ^ 0x9e3779b9);
     const kz = D.kmToZ, km = D.zToKm;
     const sc = { buildings: [], trees: [], lamps: [], fans: [], boats: [], bridges: [], landmarks: [], walkers: [], towers: [], posts: [] };
@@ -899,11 +924,11 @@ details.part[open] summary::after { content: " ▴"; }
     for (let z = -20; z < L + 160; z += 7 + r() * 7) {
       const k = km(Math.max(0, z));
       const dist = D.DISTRICTS[D.findDistrict(Math.min(k, 42.19))];
-      if (r() < dist.trees) sc.trees.push({ z, x: -4.4 - r() * 1.4, kind: r() < 0.25 ? 'poplar' : 'round', h: 4.5 + r() * 3, tone: r() });
+      if (r() < dist.trees) sc.trees.push({ z, x: rivalLane ? -4.9 - r() * 1.2 : -4.4 - r() * 1.4, kind: r() < 0.25 ? 'poplar' : 'round', h: 4.5 + r() * 3, tone: r() });
     }
     for (let z = 4; z < L + 160; z += 22) {
       sc.lamps.push({ z, x: 5.95, side: 1 });
-      if ((z / 22) % 2 < 1) sc.lamps.push({ z: z + 11, x: -3.3, side: -1 });
+      if ((z / 22) % 2 < 1) sc.lamps.push({ z: z + 11, x: rivalLane ? -4.6 : -3.3, side: -1 });
     }
     for (let z = 0; z < L + 160; z += 9) sc.posts.push({ z });
 
@@ -971,7 +996,9 @@ details.part[open] summary::after { content: " ▴"; }
   };
 
   /* ---------------- Соперники ---------------- */
-  D.initRivals = function (participants, seed) {
+  // место соперника на своей дорожке: постоянный сдвиг, чтобы шли не гуськом, а по двое
+  const laneX = (r) => D.RIVAL_LANE.x + (r() - 0.5) * D.RIVAL_LANE.spread;
+  D.initRivals = function (participants, seed, rivalLane) {
     const r = mulberry32(seed ^ 0x51ed27);
     const N = participants.length;
     return participants.map((p, i) => {
@@ -980,7 +1007,7 @@ details.part[open] summary::after { content: " ▴"; }
       const T = 128 + Math.pow(r(), 0.85) * 170; // секунды игры до финиша (2:08:00 … 4:58:00)
       return { id: p.id, name: p.name, z0, T, bumpT: 0, bumpDir: 1, v: (L - z0) / T, lane: Math.floor(r() * 3), x: 0, z: z0, ahead: true, passed: false,
         phase: r() * 6.28, look: D.randomLook(r, false), dodge: 0 };
-    }).map((rv) => { rv.x = LANES[rv.lane]; return rv; });
+    }).map((rv) => { rv.laneX = laneX(r); rv.x = rivalLane ? rv.laneX : LANES[rv.lane]; return rv; });
   };
   D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * t);
 
@@ -998,9 +1025,9 @@ details.part[open] summary::after { content: " ▴"; }
       const fr = STAR_F[st.kind], f = fr[0] + r() * (fr[1] - fr[0]);
       const d = Math.max(180, (1 - f) * C);
       const v = Math.max(vAvg * 0.3, vAvg * (C - d) / C);
-      const lane = Math.floor(r() * 3);
+      const lane = Math.floor(r() * 3), lx = laneX(r);
       g.rivals.push({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, z0: g.pz + d - v * g.t, v, T: 0,
-        bumpT: 0, bumpDir: 1, lane, x: LANES[lane], z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
+        bumpT: 0, bumpDir: 1, lane, x: g.rivalLane ? lx : LANES[lane], laneX: lx, z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
         look: { skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
           shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false } });
     });
@@ -1009,11 +1036,13 @@ details.part[open] summary::after { content: " ▴"; }
   }
 
   /* ---------------- Состояние забега ---------------- */
-  D.newGame = function (participants, seed) {
+  // opts.rivalLane — тестовый режим: соперники на отдельной дорожке слева
+  D.newGame = function (participants, seed, opts) {
+    const rivalLane = !!(opts && opts.rivalLane);
     seed = seed >>> 0;
     const plan = D.buildPlan(seed);
     return {
-      seed, plan, scenery: D.buildScenery(seed), rivals: D.initRivals(participants, seed),
+      seed, plan, scenery: D.buildScenery(seed, { rivalLane }), rivals: D.initRivals(participants, seed, rivalLane), rivalLane,
       t: 0, pz: 0, px: 0, lane: 1, vx: 0, y: 0, vy: 0, speed: 0,
       cad: D.CAD.start, cadEff: D.CAD.start, gel: D.SUPPLY.gel, drink: D.SUPPLY.drink, food: D.SUPPLY.food, hr: 92,
       bonus: 0, penalty: 0, boostT: 0, boostKind: '', pacerT: 0, invulnT: 0, hitPen: 0, hitPenT: 0,
@@ -1163,6 +1192,7 @@ details.part[open] summary::after { content: " ▴"; }
       const dz = rv.z - g.pz;
       if (dz > -12 && dz < 160) {
         rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
+        if (g.rivalLane) { rv.x = rv.laneX; continue; } // своя дорожка: ни препятствий, ни игрока
         // обход препятствий: ищем ряд впереди
         let desired = rv.lane;
         const row = D.rowNear(rows, rv.z, 1, 12);
@@ -2142,9 +2172,11 @@ details.part[open] summary::after { content: " ▴"; }
     }
     ctx.fillStyle = curCol; ctx.fill();
     // тротуар, бордюры, дорога, набережная
-    ctx.fillStyle = '#bdb5a8'; ctx.beginPath(); band(-7.5, -2.75, 0, zn, zf); ctx.fill();
-    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); band(-2.75, -2.45, 0, zn, zf); band(2.45, 2.75, 0, zn, zf); ctx.fill();
-    ctx.fillStyle = '#4a4b55'; ctx.beginPath(); band(-2.45, 2.45, 0, zn, zf); ctx.fill();
+    // тестовый режим: слева от полос игрока — дорожка соперников
+    const roadL = g.rivalLane ? D.RIVAL_LANE.left : -2.45;
+    ctx.fillStyle = '#bdb5a8'; ctx.beginPath(); band(-7.5, roadL - 0.3, 0, zn, zf); ctx.fill();
+    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); band(roadL - 0.3, roadL, 0, zn, zf); band(2.45, 2.75, 0, zn, zf); ctx.fill();
+    ctx.fillStyle = '#4a4b55'; ctx.beginPath(); band(roadL, 2.45, 0, zn, zf); ctx.fill();
     ctx.fillStyle = '#ab9f95'; ctx.beginPath(); band(2.75, 6.2, 0, zn, zf); ctx.fill();
     // полосы движения (лёгкая текстура асфальта и плитки)
     ctx.beginPath();
@@ -2169,11 +2201,12 @@ details.part[open] summary::after { content: " ▴"; }
     // Лужники: беговое покрытие с белыми линиями вместо асфальта
     const ta = Math.max(zn, D.kmToZ(D.TRACK_KM[0])), tb = Math.min(zf, D.kmToZ(D.TRACK_KM[1]));
     if (tb > ta) {
-      ctx.fillStyle = '#b4452f'; ctx.beginPath(); band(-2.45, 2.45, 0, ta, tb); ctx.fill();
+      ctx.fillStyle = '#b4452f'; ctx.beginPath(); band(roadL, 2.45, 0, ta, tb); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath();
       for (const lx of [-2.28, -0.725, 0.725, 2.28]) band(lx - 0.03, lx + 0.03, 0, ta, Math.min(tb, cam.z + 160));
       ctx.fill();
     }
+    if (g.rivalLane) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); band(-2.52, -2.38, 0, zn, Math.min(zf, cam.z + 160)); ctx.fill(); }
     // гранитный парапет
     ctx.fillStyle = '#8c7f78'; ctx.beginPath(); vband(6.2, 0, 1.0, zn, zf); ctx.fill();
     ctx.fillStyle = '#c0b4aa'; ctx.beginPath(); band(6.2, 6.9, 1.0, zn, zf); ctx.fill();
@@ -3679,24 +3712,41 @@ details.part[open] summary::after { content: " ▴"; }
       if (rep) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * rep[0], uv.getY(i) * rep[1]); }
       const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m); return m;
     };
-    strip(-7.5, -2.75, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [3, len / 1.6]);
+    // тестовый режим: слева от трёх полос игрока — отдельная дорожка соперников, тротуар уже
+    const RL = !!g.rivalLane, roadL = RL ? D.RIVAL_LANE.left : -2.45;
+    strip(-7.5, roadL - 0.3, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [(roadL - 0.3 + 7.5) / 1.6, len / 1.6]);
     strip(2.75, 6.2, 0.06, lambert('#ffffff', { map: T.tiles('#b2a69c', 'rgba(70,60,55,0.35)') }), [2, len / 1.6]);
     // дорога: асфальт до Лужников и после, между ними — беговое покрытие (куски встык, без наложения)
     {
       const ta = D.kmToZ(D.TRACK_KM[0]), tb = D.kmToZ(D.TRACK_KM[1]);
-      const road = (za, zb, mat, repY) => {
-        const geo = new THREE.PlaneGeometry(4.9, zb - za).rotateX(-PI / 2).translate(0, 0, -(za + zb) / 2);
-        const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * repY);
+      // кусок покрытия: x0…x1 по ширине, u0…u1 — какой участок текстуры (у дорожки соперников — без разметки полос)
+      const road = (za, zb, mat, repY, x0, x1, u0, u1) => {
+        const geo = new THREE.PlaneGeometry(x1 - x0, zb - za).rotateX(-PI / 2).translate((x0 + x1) / 2, 0, -(za + zb) / 2);
+        const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), uv.getY(i) * repY);
         const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m);
       };
-      const asph = lambert('#ffffff', { map: T.asphalt() });
-      road(z0, ta, asph, (ta - z0) / 8); road(tb, z1, asph, (z1 - tb) / 8);
-      road(ta, tb, lambert('#ffffff', { map: T.tartan() }), (tb - ta) / 6);
+      const asph = lambert('#ffffff', { map: T.asphalt() }), tart = lambert('#ffffff', { map: T.tartan() });
+      const lanes = (x0, x1, u0, u1) => {
+        road(z0, ta, asph, (ta - z0) / 8, x0, x1, u0, u1); road(tb, z1, asph, (z1 - tb) / 8, x0, x1, u0, u1);
+        road(ta, tb, tart, (tb - ta) / 6, x0, x1, u0, u1);
+      };
+      lanes(-2.45, 2.45, 0, 1);
+      if (RL) lanes(roadL, -2.45, 0.4, 0.6);
       const lineM = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-      for (const zz of [ta, tb]) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 0.35).rotateX(-PI / 2), lineM); ln.position.set(0, 0.008, Z(zz)); root.add(ln); }
+      for (const zz of [ta, tb]) root.add(boxAt(unitBox, lineM, roadL, 2.45, 0, 0.015, zz - 0.17, zz + 0.17));
     }
     const curbMat = lambert('#dcd5c8');
-    for (const [a, b] of [[-2.75, -2.45], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
+    for (const [a, b] of [[roadL - 0.3, roadL], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
+    if (RL) {
+      // разделитель: сплошная белая линия и конусы каждые 6 м
+      root.add(boxAt(unitBox, new THREE.MeshBasicMaterial({ color: '#ffffff' }), -2.52, -2.38, 0, 0.012, z0, z1));
+      const n = Math.floor((z1 - z0) / 6), mt = new THREE.Matrix4();
+      const cone = new THREE.InstancedMesh(new THREE.ConeGeometry(0.16, 0.5, 12).translate(0, 0.25, 0), lambert('#ff7a1a'), n);
+      const band = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.105, 0.125, 0.09, 12).translate(0, 0.27, 0), lambert('#ffffff'), n);
+      for (let i = 0; i < n; i++) { mt.makeTranslation(-2.45, 0, Z(z0 + i * 6 + 3)); cone.setMatrixAt(i, mt); band.setMatrixAt(i, mt); }
+      for (const im of [cone, band]) { im.frustumCulled = false; root.add(im); }
+      cone.castShadow = true;
+    }
     // гранитный парапет
     {
       const gt = T.granite().clone(); gt.needsUpdate = true; gt.repeat.set(len / 4, 1);
@@ -4652,6 +4702,10 @@ details.part[open] summary::after { content: " ▴"; }
   const clubRoster = () => ({ participants: D.clubParticipants(), mode: 'club', stats: null, file: '' });
   const demoRoster = () => ({ participants: D.demoParticipants(), mode: 'demo', stats: null, file: '' });
   let roster = clubRoster();
+  // тестовый режим: соперники на своей дорожке слева (переключатель на старте или ?lane=4 в адресе)
+  const LANE_KEY = 'dusty.rivalLane';
+  let rivalLane = /[?&]lane=4(&|$)/.test(G.location.search);
+  try { if (!rivalLane) rivalLane = G.localStorage.getItem(LANE_KEY) === '1'; } catch (e) { /* без хранилища */ }
   const reduceMQ = G.matchMedia ? G.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /* ---------- участники ---------- */
@@ -4710,6 +4764,11 @@ details.part[open] summary::after { content: " ▴"; }
   });
   $('btnDemo').addEventListener('click', () => { roster = demoRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
   $('btnClub').addEventListener('click', () => { roster = clubRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('optLane').checked = rivalLane;
+  $('optLane').addEventListener('change', (e) => {
+    rivalLane = e.target.checked;
+    try { G.localStorage.setItem(LANE_KEY, rivalLane ? '1' : '0'); } catch (x) { /* без сохранения */ }
+  });
 
   /* ---------- звук ---------- */
   function soundUI() {
@@ -4735,9 +4794,9 @@ details.part[open] summary::after { content: " ▴"; }
 
   function startRun() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0);
+    g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0, { rivalLane });
     paused = false; finishDelay = 0; hudT = 0;
-    $('toasts').textContent = '';
+    $('toasts').textContent = ''; clearBig();
     state = 'countdown'; countT = 0; countShown = -1;
     show(null);
     document.body.classList.add('playing');
@@ -4753,7 +4812,7 @@ details.part[open] summary::after { content: " ▴"; }
     if (!p) last = performance.now();
   }
   function toMenu() {
-    state = 'menu'; paused = false; g = null;
+    state = 'menu'; paused = false; g = null; clearBig();
     document.body.classList.remove('playing');
     $('countdown').classList.remove('show');
     A.updateMusic(0); A.setPaused(false);
@@ -4820,6 +4879,40 @@ details.part[open] summary::after { content: " ▴"; }
     setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 2350);
   }
 
+  // Крупное предупреждение о запасе: всплывает по центру и улетает с уменьшением в свою плашку под HUD.
+  // Несколько подряд — по очереди: следующее появляется, когда предыдущее уже улетает.
+  const bigQueue = [];
+  let bigBusy = false;
+  function bigWarn(res, out) { bigQueue.push({ res, out }); if (!bigBusy) nextBig(); }
+  function clearBig() {
+    bigQueue.length = 0; bigBusy = false;
+    for (const el of document.querySelectorAll('.bigwarn')) el.remove();
+  }
+  function nextBig() {
+    const it = bigQueue.shift();
+    if (!it || !g || state === 'done' || state === 'menu') { bigBusy = false; return; }
+    // пока ждало очереди, запас уже пополнили (или он кончился — тогда покажем «нет»)
+    if (it.out ? g[it.res] > 0 : !g.warn[it.res] || g[it.res] <= 0) return nextBig();
+    bigBusy = true;
+    const w = { gel: ['ГЕЛЬ', 'ГЕЛЯ', 'гель'], drink: ['ПИТЬЁ', 'ПИТЬЯ', 'питьё'], food: ['ЕДА', 'ЕДЫ', 'еду'] }[it.res];
+    const el = document.createElement('div');
+    el.className = 'bigwarn' + (it.out ? ' out' : '');
+    const b = document.createElement('b'); b.textContent = it.out ? 'НЕТ ' + w[1] : w[0] + ' — 5 СЕКУНД'; el.appendChild(b);
+    const s = document.createElement('span'); s.textContent = it.out ? 'каденс −' + D.CAD.empty + ' — подбери ' + w[2] : 'скоро закончится — возьми ' + w[2]; el.appendChild(s);
+    document.body.appendChild(el);
+    // цель полёта — центр плашки этого запаса; анимацию запускаем сразу, без ожидания кадра (на слабых устройствах кадр бывает долгим)
+    const pill = $({ gel: 'wGel', drink: 'wDrink', food: 'wFood' }[it.res]);
+    const r = el.getBoundingClientRect(), p = pill.getBoundingClientRect();
+    if (p.width) {
+      el.style.setProperty('--tx', (p.left + p.width / 2 - (r.left + r.width / 2)) + 'px');
+      el.style.setProperty('--ty', (p.top + p.height / 2 - (r.top + r.height / 2)) + 'px');
+    }
+    el.classList.add('go');
+    el.addEventListener('animationend', () => el.remove());
+    setTimeout(() => el.remove(), 6000); // если анимация так и не запустилась
+    setTimeout(nextBig, 1300);
+  }
+
   function handleEvents() {
     for (const e of g.events) {
       switch (e.kind) {
@@ -4837,8 +4930,8 @@ details.part[open] summary::after { content: " ▴"; }
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
         case 'km': toast(e.title, e.sub, 'info'); A.play('bonus'); break;
-        case 'warn': A.play('tick'); break;
-        case 'empty': toast('НЕТ: ' + D.SUPPLY_NAME[e.res].toUpperCase(), 'каденс −' + D.CAD.empty + ' — подбери ' + (e.res === 'gel' ? 'гель' : e.res === 'drink' ? 'питьё' : 'еду'), 'bad'); break;
+        case 'warn': updateHUD(true); bigWarn(e.res, false); A.play('tick'); break;
+        case 'empty': updateHUD(true); bigWarn(e.res, true); A.play('hit'); break;
         case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
@@ -4866,6 +4959,7 @@ details.part[open] summary::after { content: " ▴"; }
     $('fHits').textContent = 'Столкновения: ' + (ht || 'ни одного') + (g.stats.shield ? '; пейсер защитил ×' + g.stats.shield : '') + '.';
     $('fNote').textContent = (g.total > 1 ? 'Место считается по итоговому времени с бонусами и штрафами. ' : 'Соперников нет — ты бежишь один. ') +
       (roster.mode === 'demo' ? 'Соперники — демонстрационный список вымышленных бегунов.' : roster.mode === 'club' ? 'Соперники — участники клуба «Пыльные Гантели».' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (g.rivalLane ? ' Тестовый режим: соперники бежали по своей дорожке.' : '') +
       (g.starsOn ? ' Звёзд бега позади: ' + g.stats.stars + ' из ' + D.STARS.length + ' — в место они не входят.' : '') +
       ' Трасса — художественная адаптация, не GPS-копия.';
     show('finish');
