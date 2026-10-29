@@ -819,7 +819,43 @@
       ctx.fillStyle = sh(b.color, -0.35); ctx.beginPath(); vband(b.xf, 0, 3.2, z0, z1); ctx.fill();
     }
     if (b.roof) { ctx.fillStyle = sh(b.color, -0.4); ctx.beginPath(); vband(b.xf + 0.01, b.h, b.h + 1.2, z0, z1); ctx.fill(); }
+    if (!b.kremlin && dn < 170) styleDetails(b, z0, z1, dn);
     ctx.globalAlpha = 1;
+  }
+  // детали стиля: карниз, руст, двускатная крыша на торце, башня со шпилем, труба, портик, витраж
+  function styleDetails(b, z0, z1, dn) {
+    const st = b.style;
+    if (st === 'stalin' || st === 'classic' || st === 'merchant') { ctx.fillStyle = sh(b.color, 0.18); ctx.beginPath(); vband(b.xf + 0.02, b.h - 0.6, b.h, z0, z1); ctx.fill(); }
+    if (st === 'stalin') { ctx.fillStyle = sh(b.color, -0.25); ctx.beginPath(); vband(b.xf + 0.02, 0, 6.8, z0, z1); ctx.fill(); }
+    if (st === 'modern') { ctx.fillStyle = 'rgba(220,235,250,0.35)'; ctx.beginPath(); for (let y = 3.6; y < b.h; y += 3.6) vband(b.xf + 0.02, y - 0.25, y, z0, z1); ctx.fill(); }
+    if ((st === 'merchant' || st === 'brick') && b.z > cam.z + 0.7) {
+      ctx.fillStyle = st === 'brick' ? '#5d5f66' : '#7d8a8c'; ctx.beginPath();
+      ctx.moveTo(PX(b.xf, dn), PY(b.h, dn)); ctx.lineTo(PX(b.xf - b.depth / 2, dn), PY(b.h + b.depth * (st === 'brick' ? 0.18 : 0.32), dn)); ctx.lineTo(PX(b.xf - b.depth, dn), PY(b.h, dn)); ctx.closePath(); ctx.fill();
+    }
+    const at = (z) => z - cam.z;
+    if (st === 'stalin' && b.tower) {
+      const w = Math.min(b.depth, b.len) * 0.5, zc = b.z + b.len - w / 2 - 0.6, d = at(zc);
+      if (d > 0.8) {
+        const x = PX(b.xf - b.depth / 2, d), s = f / d, h1 = b.h * 0.32, h2 = b.h * 0.2;
+        ctx.fillStyle = b.color; ctx.fillRect(x - w * s / 2, PY(b.h + h1, d), w * s, h1 * s);
+        ctx.fillRect(x - w * 0.31 * s, PY(b.h + h1 + h2, d), w * 0.62 * s, h2 * s);
+        ctx.fillStyle = '#c9a23a'; ctx.beginPath(); ctx.moveTo(x - w * 0.1 * s, PY(b.h + h1 + h2, d)); ctx.lineTo(x, PY(b.h * 1.82, d)); ctx.lineTo(x + w * 0.1 * s, PY(b.h + h1 + h2, d)); ctx.fill();
+      }
+    }
+    if (st === 'brick' && b.chimney) {
+      const d = at(b.z + b.len * 0.3);
+      if (d > 0.8) { const x = PX(b.xf - b.depth * 0.7, d), s = f / d; ctx.fillStyle = sh(b.color, -0.2); ctx.fillRect(x - 0.9 * s, PY(b.h + 14 + (b.len % 8), d), 1.8 * s, (b.h + 14 + (b.len % 8)) * s); }
+    }
+    if (st === 'classic' && b.portico) {
+      const n = b.len > 22 ? 6 : 4, span = Math.min(b.len - 2, n * 2.2), colH = Math.min(b.h * 0.62, 9);
+      ctx.fillStyle = '#f4f1ea';
+      for (let i = 0; i < n; i++) { const d = at(b.z + b.len / 2 - span / 2 + (i + 0.5) * span / n); if (d < 0.8) continue; const s = f / d; ctx.fillRect(PX(b.xf + 1.1, d) - 0.2 * s, PY(colH, d), 0.4 * s, colH * s); }
+      const da = at(b.z + b.len / 2 - span / 2), db = at(b.z + b.len / 2 + span / 2);
+      if (da > 0.8) {
+        ctx.beginPath(); ctx.moveTo(PX(b.xf + 1.1, da), PY(colH + 0.7, da)); ctx.lineTo(PX(b.xf + 1.1, (da + db) / 2), PY(colH + 0.7 + Math.min(2.6, span * 0.18), (da + db) / 2));
+        ctx.lineTo(PX(b.xf + 1.1, db), PY(colH + 0.7, db)); ctx.lineTo(PX(b.xf + 1.1, db), PY(colH, db)); ctx.lineTo(PX(b.xf + 1.1, da), PY(colH, da)); ctx.closePath(); ctx.fill();
+      }
+    }
   }
 
   function drawBridge(br) {
@@ -879,7 +915,7 @@
     const sc = g.scenery;
     drawList.length = 0;
     const zMin = cam.z - 40, zMax = cam.z + FAR;
-    for (const b of sc.buildings) { if (b.z + b.len < cam.z || b.z > zMax) continue; push(b.z, 'bld', b); }
+    for (const b of sc.buildings) { if (b.back || b.z + b.len < cam.z || b.z > zMax) continue; push(b.z, 'bld', b); }
     for (const l of sc.landmarks) { if (l.z < cam.z + 45 || l.z > zMax + 60) continue; push(l.z, 'lm', l); }
     for (const t of sc.towers) { if (t.z < cam.z + 2 || t.z > zMax) continue; push(t.z, 'tower', t); }
     drawList.sort((a, b) => b.z - a.z);

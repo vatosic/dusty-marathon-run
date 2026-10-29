@@ -210,14 +210,25 @@
         sc.buildings.push({ z, len: 30, xf: -9, depth: 6, h: 7, color: '#b23a2c', kremlin: true });
         z += 30; continue;
       }
-      const nearLm = lmZ.some((lz) => Math.abs(lz - z) < 70);
+      const clearOf = (zz, ln) => !lmZ.some((lz) => zz < lz + 40 && zz + ln > lz - 40); // дом не должен заслонять ориентир
+      const nearLm = !clearOf(z, len);
+      const house = (style, zz, ln, xf, depth, hMul, back) => {
+        const st = D.STYLES[style], h = lerp(st.h[0], st.h[1], r()) * hMul;
+        sc.buildings.push({ z: zz, len: ln, xf, depth, h, style, back,
+          color: st.pal[Math.floor(r() * st.pal.length)], floors: Math.min(15, Math.round(h / 3.4)),
+          cols: Math.max(2, Math.round(ln / 3.2)), roof: style === 'merchant' || style === 'brick',
+          tower: style === 'stalin' && ln > 16 && r() < 0.45, portico: !back && style === 'classic' && ln > 13 && r() < 0.65, chimney: style === 'brick' && r() < 0.7 });
+      };
       if (!nearLm && r() > dist.gap) {
-        const h = lerp(dist.hMin, dist.hMax, r());
-        sc.buildings.push({ z, len, xf: -8 - r() * 2, depth: 10 + r() * 10, h,
-          color: dist.palette[Math.floor(r() * dist.palette.length)], floors: Math.min(12, Math.round(h / 3.4)),
-          cols: Math.max(2, Math.round(len / 3.2)), roof: r() < 0.3 });
+        const style = weighted(r, dist.styles), xf = -8 - r() * 2, depth = 10 + r() * 10;
+        house(style, z, len, xf, depth, 1, false);
+        // вторая линия застройки — выше и глубже (только в 3D)
+        if (r() < 0.65) {
+          const st2 = weighted(r, dist.styles), bz = z + r() * 4, bl = len * (0.7 + r() * 0.5), bx = xf - depth - 4 - r() * 6, bd = 10 + r() * 6, hm = 1.15 + r() * 0.5;
+          if (clearOf(bz, bl)) house(st2, bz, bl, bx, bd, hm, true);
+        }
       }
-      z += len + 1.5 + r() * 4;
+      z += len + 0.8 + r() * 2.5;
     }
     for (let z = -20; z < L + 160; z += 7 + r() * 7) {
       const k = km(Math.max(0, z));

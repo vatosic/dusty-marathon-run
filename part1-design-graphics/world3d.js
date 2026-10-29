@@ -11,37 +11,6 @@
   function std(color, extra) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85, metalness: 0 }, extra || {})); }
   function lambert(color, extra) { return new THREE.MeshLambertMaterial(Object.assign({ color }, extra || {})); }
 
-  // Фасады с окнами: сетка окон считается в шейдере по мировым координатам
-  function facadeMaterial(winColor) {
-    const m = new THREE.MeshLambertMaterial({ color: '#ffffff' });
-    m.onBeforeCompile = (sh) => {
-      sh.uniforms.winColor = { value: new THREE.Color(winColor) };
-      sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWN;')
-        .replace('#include <begin_vertex>', `#include <begin_vertex>
-          vec4 wp = vec4(transformed, 1.0);
-          vec3 wn = objectNormal;
-          #ifdef USE_INSTANCING
-            wp = instanceMatrix * wp; wn = mat3(instanceMatrix) * wn;
-          #endif
-          wp = modelMatrix * wp; vWPos = wp.xyz; vWN = normalize(mat3(modelMatrix) * wn);`);
-      sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWN; uniform vec3 winColor;')
-        .replace('#include <color_fragment>', `#include <color_fragment>
-          if (vWN.y > 0.5) { diffuseColor.rgb *= 0.62; }
-          else {
-            float u = abs(vWN.x) > 0.5 ? vWPos.z : vWPos.x;
-            float fu = fract(u / 3.1), fv = fract(vWPos.y / 3.4);
-            float win = step(0.22, fu) * step(fu, 0.72) * step(0.28, fv) * step(fv, 0.8) * step(3.4, vWPos.y);
-            float glass = 0.5 + 0.5 * fract(sin(floor(u / 3.1) * 12.9898 + floor(vWPos.y / 3.4) * 78.233) * 43758.5453);
-            diffuseColor.rgb = mix(diffuseColor.rgb, winColor * (0.75 + 0.5 * glass), win * 0.85);
-            if (vWPos.y < 3.2) diffuseColor.rgb *= 0.72;
-            diffuseColor.rgb *= 0.92 + 0.08 * step(0.5, fract(vWPos.y / 3.4));
-          }`);
-    };
-    return m;
-  }
-
   function boxAt(geo, mat, x0, x1, y0, y1, z0, z1) {
     const m = new THREE.Mesh(geo, mat);
     m.scale.set(x1 - x0, y1 - y0, z1 - z0);
@@ -79,14 +48,18 @@
       const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m); return m;
     };
     strip(-7.5, -2.75, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [3, len / 1.6]);
-    strip(-2.45, 2.45, 0.0, lambert('#ffffff', { map: T.asphalt() }), [1, len / 8]);
     strip(2.75, 6.2, 0.06, lambert('#ffffff', { map: T.tiles('#b2a69c', 'rgba(70,60,55,0.35)') }), [2, len / 1.6]);
-    // Лужники: вместо асфальта беговое покрытие, на входе и выходе — белые поперечные линии
+    // дорога: асфальт до Лужников и после, между ними — беговое покрытие (куски встык, без наложения)
     {
       const ta = D.kmToZ(D.TRACK_KM[0]), tb = D.kmToZ(D.TRACK_KM[1]);
-      const tt = T.tartan().clone(); tt.needsUpdate = true; tt.repeat.set(1, (tb - ta) / 6);
-      const geo = new THREE.PlaneGeometry(4.9, tb - ta).rotateX(-PI / 2).translate(0, 0.004, -(ta + tb) / 2);
-      const m = new THREE.Mesh(geo, lambert('#ffffff', { map: tt })); m.receiveShadow = true; root.add(m);
+      const road = (za, zb, mat, repY) => {
+        const geo = new THREE.PlaneGeometry(4.9, zb - za).rotateX(-PI / 2).translate(0, 0, -(za + zb) / 2);
+        const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * repY);
+        const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m);
+      };
+      const asph = lambert('#ffffff', { map: T.asphalt() });
+      road(z0, ta, asph, (ta - z0) / 8); road(tb, z1, asph, (z1 - tb) / 8);
+      road(ta, tb, lambert('#ffffff', { map: T.tartan() }), (tb - ta) / 6);
       const lineM = new THREE.MeshBasicMaterial({ color: '#ffffff' });
       for (const zz of [ta, tb]) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 0.35).rotateX(-PI / 2), lineM); ln.position.set(0, 0.008, Z(zz)); root.add(ln); }
     }
@@ -112,29 +85,22 @@
       const wall = boxAt(unitBox, lambert('#8d8079'), 6.9, 7.1, -2.3, 1.0, z0, z1); root.add(wall);
     }
 
-    /* ---- здания ---- */
-    const facade = facadeMaterial('#2c3e57');
+    /* ---- здания: стили по районам, две линии застройки; том берег ---- */
+    D.Arch3D.buildCity(root, sc);
     {
-      const list = sc.buildings.filter((b) => !b.kremlin);
-      const im = new THREE.InstancedMesh(unitBox, facade, list.length);
-      const mt = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
-      list.forEach((b, i) => {
-        mt.compose(new THREE.Vector3(b.xf - b.depth / 2, 0, Z(b.z + b.len / 2)), q, new THREE.Vector3(b.depth, b.h, b.len));
-        im.setMatrixAt(i, mt); im.setColorAt(i, c.set(b.color));
-      });
-      im.frustumCulled = false; im.castShadow = false; im.receiveShadow = true; root.add(im);
-      // противоположный берег
       const r = D.rng(g.seed ^ 77);
-      const far = [];
-      for (let z = -60; z < L + 300; z += 14 + r() * 16) far.push({ z, len: 12 + r() * 14, h: 10 + r() * 26, depth: 14, color: ['#b7c2c9', '#d8cdb8', '#c9a98f', '#e3dccf', '#a9b8c4'][Math.floor(r() * 5)] });
-      const imf = new THREE.InstancedMesh(unitBox, facade, far.length);
-      far.forEach((b, i) => {
-        const k = D.zToKm(b.z); const park = (k > 22.5 && k < 28.5);
-        const h = park ? 0.01 : b.h;
-        mt.compose(new THREE.Vector3(84, -2.3, Z(b.z + b.len / 2)), q, new THREE.Vector3(b.depth, h, b.len));
-        imf.setMatrixAt(i, mt); imf.setColorAt(i, c.set(b.color));
-      });
-      imf.frustumCulled = false; root.add(imf);
+      const farLm = D.LANDMARKS_FAR.map((l) => D.kmToZ(l.km));
+      const far = new D.Arch3D.Batch(unitBox, D.Arch3D.facade('#2c3e57'));
+      const farStyles = [['stalin', 0.35], ['merchant', 0.25], ['modern', 0.2], ['panel', 0.2]];
+      for (let z = -60; z < L + 300; z += 14 + r() * 16) {
+        const len = 12 + r() * 14, k = D.zToKm(z);
+        if ((k > 22.5 && k < 28.5) || farLm.some((fz) => Math.abs(fz - z) < 45)) continue; // Воробьёвы горы и ориентиры
+        let x = r(), style = farStyles[0][0];
+        for (const [st, w] of farStyles) { x -= w; if (x <= 0) { style = st; break; } }
+        const S = D.STYLES[style];
+        far.add(84, -2.3, Z(z + len / 2), 14, D.lerp(S.h[0], S.h[1], r()) * 1.1, len, S.pal[Math.floor(r() * S.pal.length)], 0, { panel: 0, stalin: 1, merchant: 2, modern: 4 }[style]);
+      }
+      far.build(root, true);
       // Воробьёвы горы напротив Лужников
       const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 12, 0, PI * 2, 0, PI / 2), lambert('#6e9a63'));
       hill.scale.set(60, 26, 380); hill.position.set(110, -2.3, Z(D.kmToZ(25.2))); root.add(hill);
@@ -230,15 +196,17 @@
       }
     }
 
-    /* ---- ориентиры: силуэты-фасады ---- */
+    /* ---- ориентиры: объёмные модели на нашем и на том берегу ---- */
     for (const lm of sc.landmarks) {
-      const tx = T.landmark(lm.kind), u = tx.userData;
-      const mat = new THREE.MeshLambertMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
-      const geo = new THREE.PlaneGeometry(u.w, u.h).translate(u.cx, u.h / 2, 0);
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(lm.x, 0, Z(lm.z));
-      root.add(m);
-      state.landmarks.push({ mesh: m, lm });
+      const m = D.Arch3D.landmark(lm.kind);
+      m.position.set(lm.x, 0, Z(lm.z)); root.add(m);
+      state.landmarks.push({ mesh: m, z: lm.z });
+    }
+    for (const lm of D.LANDMARKS_FAR) {
+      const m = D.Arch3D.landmark(lm.kind), zz = D.kmToZ(lm.km);
+      m.position.set(lm.x, lm.kind === 'petr' ? 0 : -1.4, Z(zz));
+      if (lm.kind !== 'petr') m.rotation.y = PI; // фасадом к реке
+      root.add(m); state.landmarks.push({ mesh: m, z: zz });
     }
 
     /* ---- арки: старт, точка Дасти, финиш ---- */
@@ -413,14 +381,8 @@
   /* ---- обновление статического мира за кадр ---- */
   W3.update = function (st, g, cam, t, km) {
     if (st.water) { st.water.offset.y = -t * 0.06; st.water.offset.x = Math.sin(t * 0.3) * 0.02; }
-    // ориентиры поворачиваются к камере вокруг вертикали
-    for (const l of st.landmarks) {
-      const m = l.mesh;
-      const dz = l.lm.z - g.pz;
-      m.visible = dz > -40 && dz < 420;
-      if (!m.visible) continue;
-      m.rotation.y = Math.atan2(cam.position.x - m.position.x, cam.position.z - m.position.z);
-    }
+    // ориентиры рисуем только поблизости
+    for (const l of st.landmarks) { const dz = l.z - g.pz; l.mesh.visible = dz > -70 && dz < 560; }
     // теплоходы
     const sc = g.scenery;
     let bi = 0;

@@ -152,7 +152,7 @@
     const key = 'txt|' + text + '|' + JSON.stringify(opts);
     if (cache.has(key)) return cache.get(key);
     const w = opts.w || 512, h = opts.h || 128, c = canvas(w, h), x = c.getContext('2d');
-    x.fillStyle = opts.bg || '#ffffff'; x.fillRect(0, 0, w, h);
+    if (opts.bg !== 'none') { x.fillStyle = opts.bg || '#ffffff'; x.fillRect(0, 0, w, h); }
     if (opts.stripe) { x.fillStyle = opts.stripe; x.fillRect(0, h * 0.82, w, h * 0.1); }
     if (opts.checker) { for (let i = 0; i < w / 16; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#fff' : INK; x.fillRect(i * 16, h - 32 + j * 16, 16, 16); } }
     let size = opts.size || h * 0.55;

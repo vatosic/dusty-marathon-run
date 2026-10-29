@@ -105,6 +105,19 @@ ok(D.findDistrict(6.9) === 0 && D.findDistrict(7) === 1 && D.findDistrict(24) ==
   ok(D.STARS.length === 20 && new Set(D.STARS.map((st) => st.name)).size === 20 && D.STARS.every((st) => st.tag && ['sprint', 'mid', 'long'].includes(st.kind)), 'звёзды: 20 с подписями');
 }
 
+// 3c. Застройка: у каждого дома стиль района, ориентиры ничем не заслонены
+for (const seed of [5, 77, 1234]) {
+  const sc = D.buildScenery(seed);
+  const lmZ = D.LANDMARKS.map((l) => D.kmToZ(l.km));
+  for (const b of sc.buildings) {
+    if (b.kremlin) continue;
+    const dist = D.DISTRICTS[D.findDistrict(Math.min(42.19, Math.max(0, D.zToKm(b.z))))];
+    ok(!!D.STYLES[b.style] && (b.back || dist.styles.some(([st]) => st === b.style)), `дом стиля ${b.style} в районе ${dist.id}`);
+    ok(!lmZ.some((lz) => b.z < lz + 40 && b.z + b.len > lz - 40), 'дом заслоняет ориентир');
+  }
+  ok(sc.buildings.filter((b) => !b.kremlin && !b.back).length > 40, 'набережные застроены');
+}
+
 // 4. Позиция при разном числе соперников
 for (const n of [0, 1, 5, 100]) {
   const g = D.newGame(D.demoParticipants().slice(0, n), 42);
