@@ -15,11 +15,13 @@
     g.computeVertexNormals();
     return g;
   }
-  function capsule(r, len, ycenter) {
-    const g = new THREE.CapsuleGeometry(r, len, S(6), S(12));
-    g.translate(0, ycenter, 0);
+  // Конечность — профиль вращения [радиус, y] сверху вниз; bulge(x, y, z) → множитель для z (мышечный рельеф спереди/сзади)
+  function limb(points, seg, bulge) {
+    const g = new THREE.LatheGeometry(points.slice().reverse().map((p) => new THREE.Vector2(p[0], p[1])), S(seg), PI, PI * 2);
+    if (bulge) { const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) * bulge(p.getX(i), p.getY(i), p.getZ(i))); }
     return g;
   }
+  const gauss = (y, c, w) => Math.exp(-Math.pow((y - c) / w, 2));
   function geos(lod) {
     lod = lod || 1;
     if (GEOS[lod]) return GEOS[lod];
@@ -33,15 +35,20 @@
       sock: (() => { const g = new THREE.CylinderGeometry(0.047, 0.05, 0.09, 12); g.translate(0, 0.01, 0); return g; })(),
       watch: (() => { const g = new THREE.TorusGeometry(0.034, 0.012, 6, 14).rotateX(PI / 2); g.translate(0, -0.25, 0); return g; })(),
       stripe: (() => { const g = new THREE.BoxGeometry(0.012, 0.16, 0.06); g.translate(0, -0.08, 0); return g; })(),
-      thigh: (() => { const g = capsule(0.074, 0.33, -0.22); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); const k = 1 + 0.12 * Math.exp(-Math.pow((y + 0.14) / 0.12, 2)); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); } g.computeVertexNormals(); return g; })(),
-      calf: (() => { const g = new THREE.CapsuleGeometry(0.05, 0.32, S(6), S(12)); g.translate(0, -0.21, 0); const p = g.attributes.position;
-        for (let i = 0; i < p.count; i++) { const y = p.getY(i); const k = 1 + 0.25 * Math.exp(-Math.pow((y + 0.1) / 0.09, 2)); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * (y > -0.2 ? k * 1.08 : k)); }
-        g.computeVertexNormals(); return g; })(),
+      // бедро: квадрицепс спереди, сужение к колену; радиус у колена совпадает с голенью — без «шарнира»
+      thigh: limb([[0.001, 0.05], [0.05, 0.045], [0.08, 0.02], [0.089, -0.06], [0.087, -0.16], [0.077, -0.27], [0.063, -0.37], [0.057, -0.43],
+        [0.05, -0.47], [0.03, -0.495], [0.001, -0.5]], 14, (x, y, z) => (z < 0 ? 1 + 0.12 * gauss(y, -0.2, 0.1) : 1)),
+      // голень: икроножная мышца сзади, тонкая лодыжка, плоская передняя часть
+      calf: limb([[0.001, 0.045], [0.03, 0.04], [0.052, 0.015], [0.056, -0.03], [0.061, -0.1], [0.057, -0.17], [0.044, -0.27], [0.034, -0.35],
+        [0.035, -0.4], [0.03, -0.43], [0.001, -0.445]], 14, (x, y, z) => (z > 0 ? 1 + 0.32 * gauss(y, -0.1, 0.07) : 0.9)),
       shoe: (() => { const g = new THREE.CapsuleGeometry(0.048, 0.16, 6, 10); g.rotateX(PI / 2); g.scale(1.05, 0.85, 1); g.translate(0, -0.035, -0.05); return g; })(),
-      sole: (() => { const g = new THREE.BoxGeometry(0.1, 0.025, 0.27); g.translate(0, -0.075, -0.05); return g; })(),
-      upperArm: (() => { const g = capsule(0.045, 0.22, -0.15); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); const k = 1 + 0.18 * Math.exp(-Math.pow((y + 0.08) / 0.08, 2)); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k * 1.05); } g.computeVertexNormals(); return g; })(),
+      // подошва — сплюснутая капсула: скруглённые пятка и носок вместо плоской плиты
+      sole: (() => { const g = new THREE.CapsuleGeometry(0.052, 0.17, 4, 12); g.rotateX(PI / 2); g.scale(1, 0.26, 1); g.translate(0, -0.075, -0.05); return g; })(),
+      // плечо: дельта сверху, бицепс, сужение к локтю
+      upperArm: limb([[0.001, 0.04], [0.035, 0.035], [0.056, 0.0], [0.057, -0.06], [0.05, -0.13], [0.043, -0.22], [0.04, -0.29], [0.03, -0.325], [0.001, -0.335]], 12,
+        (x, y, z) => (z < 0 ? 1 + 0.12 * gauss(y, -0.12, 0.06) : 1)),
       sleeve: (() => { const g = new THREE.CylinderGeometry(0.066, 0.058, 0.13, 12, 1, true); g.translate(0, -0.05, 0); return g; })(),
-      forearm: capsule(0.036, 0.21, -0.14),
+      forearm: limb([[0.001, 0.03], [0.028, 0.025], [0.04, 0], [0.043, -0.06], [0.038, -0.14], [0.029, -0.22], [0.026, -0.25], [0.001, -0.265]], 12),
       hand: (() => { const g = new THREE.SphereGeometry(0.045, 10, 8); g.scale(0.8, 1.1, 0.9); g.translate(0, -0.3, 0); return g; })(),
       neck: (() => { const g = new THREE.CylinderGeometry(0.05, 0.058, 0.12, 10); g.translate(0, 0.05, 0); return g; })(),
       head: (() => { const g = new THREE.SphereGeometry(0.104, S(18), S(14)); g.scale(0.94, 1.16, 1.05); g.translate(0, 0.11, 0); return g; })(),
@@ -116,28 +123,51 @@
   const JOINTS = ['pelvis', 'torso', 'neck', 'head', 'shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankleL', 'ankleR'];
   function reset(J) { for (const n of JOINTS) J[n].rotation.set(0, 0, 0); J.pelvis.position.y = 0.95; }
 
-  const bump = (p, c, w) => { const v = Math.cos((p - c) * w); return v > 0 ? v * v : 0; };
-  // Беговой цикл: фаза левой ноги p, правой p + π. amp — длина шага (0..1.3)
+  /* Беговой цикл по фазам шага. u — фаза ноги 0…1: 0 — касание, до 0,36 — опора (проседание и толчок носком),
+     затем полёт и перенос с высоким подъёмом пятки. Ключи — углы в радианах при amp = 1. */
+  const HIP = [[0, 0.42], [0.18, 0.05], [0.38, -0.38], [0.5, -0.3], [0.68, 0.35], [0.85, 0.68], [0.95, 0.55]];
+  const KNEE = [[0, 0.28], [0.14, 0.62], [0.36, 0.32], [0.52, 1.25], [0.64, 1.75], [0.8, 0.95], [0.93, 0.35]];
+  const ANKLE = [[0, 0.08], [0.15, 0.32], [0.36, -0.5], [0.48, -0.35], [0.7, 0.05], [0.9, 0.12]];
+  // периодический сплайн Катмулла — Рома по ключам [u, значение]
+  function kf(keys, u) {
+    const n = keys.length;
+    let i = n - 1;
+    for (let k = 0; k < n; k++) if (keys[k][0] > u) { i = k - 1; break; }
+    if (i < 0) i = n - 1;
+    const at = (k) => keys[((k % n) + n) % n];
+    const u1 = at(i)[0], u2 = i + 1 >= n ? at(i + 1)[0] + 1 : at(i + 1)[0];
+    const t = ((u - u1 + 1) % 1) / (u2 - u1);
+    const p0 = at(i - 1)[1], p1 = at(i)[1], p2 = at(i + 1)[1], p3 = at(i + 2)[1];
+    return 0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t * t * t);
+  }
+  // Фаза левой ноги p (2π — полный цикл, два шага), правой p + π. amp — длина шага (0..1.3)
   C.poseRun = function (J, p, amp, lean) {
     reset(J);
     amp = amp == null ? 1 : amp;
+    lean = lean == null ? 0.13 : lean;
+    const uL = (((p / (2 * PI)) % 1) + 1) % 1;
     for (const s of ['L', 'R']) {
-      const q = s === 'L' ? p : p + PI;
-      const pp = ((q % (2 * PI)) + 2 * PI) % (2 * PI);
-      J['hip' + s].rotation.x = 0.62 * amp * Math.sin(q) + 0.05;
-      J['knee' + s].rotation.x = -(0.22 + 1.5 * amp * bump(pp, 5.7, 1.25) + 0.35 * bump(pp, 1.6, 1.5));
-      J['ankle' + s].rotation.x = 0.25 * Math.sin(q + 0.8) * amp;
-      // рука в противофазе ноге своей стороны
-      J['shoulder' + s].rotation.x = -0.56 * amp * Math.sin(q) + 0.1;
+      const u = s === 'L' ? uL : (uL + 0.5) % 1;
+      J['hip' + s].rotation.x = kf(HIP, u) * amp;
+      J['knee' + s].rotation.x = -(0.1 + (kf(KNEE, u) - 0.1) * amp);
+      J['ankle' + s].rotation.x = kf(ANKLE, u) * amp;
+      // рука в противофазе ноге своей стороны: вперёд выше и согнута сильнее, назад — короче
+      const c = Math.cos(2 * PI * (u - 0.35));
+      J['shoulder' + s].rotation.x = amp * (0.12 + 0.5 * c);
       J['shoulder' + s].rotation.z = (s === 'L' ? -1 : 1) * 0.1;
-      J['elbow' + s].rotation.x = 1.45 + 0.25 * Math.sin(q + PI);
+      J['shoulder' + s].rotation.y = (s === 'L' ? 1 : -1) * 0.12 * amp * Math.max(0, c); // кисть к середине корпуса
+      J['elbow' + s].rotation.x = 1.5 + 0.22 * amp * c;
     }
-    J.torso.rotation.x = -(lean == null ? 0.13 : lean);
-    J.torso.rotation.y = 0.12 * Math.sin(p) * amp;
-    J.pelvis.rotation.y = -0.1 * Math.sin(p) * amp;
-    J.pelvis.rotation.z = 0.04 * Math.cos(p) * amp;
-    J.head.rotation.x = 0.1; J.head.rotation.y = -0.1 * Math.sin(p) * amp;
-    J.pelvis.position.y = 0.92 + 0.055 * Math.abs(Math.cos(p)) * amp;
+    // таз и плечи закручиваются навстречу друг другу, голова смотрит вперёд
+    const cL = Math.cos(2 * PI * (uL - 0.35));
+    J.pelvis.rotation.y = 0.08 * amp * cL;
+    J.pelvis.rotation.z = 0.04 * amp * Math.sin(2 * PI * uL);
+    J.torso.rotation.x = -lean;
+    J.torso.rotation.y = -0.18 * amp * cL;
+    J.head.rotation.x = 0.04 + lean * 0.7;
+    J.head.rotation.y = 0.1 * amp * cL;
+    // ниже всего в середине опоры, выше всего в полёте — два раза за цикл
+    J.pelvis.position.y = 0.95 - 0.03 * amp + 0.05 * amp * (1 - Math.cos(4 * PI * (uL - 0.15))) / 2;
   };
   C.poseJump = function (J, t) {
     reset(J);
@@ -191,12 +221,19 @@
     }
   };
 
+  // Мягкий свет по контуру, как в Zwift: фигуры отделяются от фона, не меняя освещение сцены
+  const RIM = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n' +
+      '  { float fr = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 3.0); gl_FragColor.rgb += vec3(1.0, 0.93, 0.88) * fr * 0.22; }');
+  };
+  C.rim = (m) => { m.onBeforeCompile = RIM; return m; };
+
   /* ---------- одиночная фигура (герой) ---------- */
   C.buildRig = function (look, opts) {
     opts = opts || {};
     const mats = {};
     const mat = (key, color, extra) => {
-      if (!mats[key]) mats[key] = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.75, metalness: 0 }, extra || {}));
+      if (!mats[key]) mats[key] = C.rim(new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.75, metalness: 0 }, extra || {})));
       return mats[key];
     };
     const J = skeleton((name, geo) => {
@@ -240,7 +277,7 @@
     const fabric = D.Tex.fabric();
     for (const n of names) {
       const ck = PART_COLOR[n] || 'skin';
-      const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: ck === 'skin' ? 0.62 : ck === 'shorts' ? 0.5 : 0.8, map: ck === 'shirt' ? fabric : null });
+      const mat = C.rim(new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: ck === 'skin' ? 0.62 : ck === 'shorts' ? 0.5 : 0.8, map: ck === 'shirt' ? fabric : null }));
       // торс у мужской и женской фигуры разный — отдельные инстансы
       const geoM = mapM[n].geometry, geoF = mapF[n].geometry;
       const im = new THREE.InstancedMesh(geoM, mat, capacity);
