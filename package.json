@@ -1,0 +1,14 @@
+{
+  "name": "dusty-marathon-run",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Браузерная 3D-аркада для бегового клуба «Пыльные Гантели»",
+  "scripts": {
+    "build": "sh build.sh",
+    "test": "node test/test.js",
+    "test:browser": "python3 test/browser3d.py 390x844"
+  },
+  "devDependencies": {
+    "three": "0.149.0"
+  }
+}
