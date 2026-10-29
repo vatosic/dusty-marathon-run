@@ -17,7 +17,7 @@
   }
   D.rng = mulberry32;
 
-  D.CAD = { min: 156, max: 200, comfort: 172, step: 4 };
+  D.CAD = { min: 156, max: 200, comfort: 172, start: 156, step: 4, slope: 0.011, slopeLow: 0.017 };
   D.BASE_SPEED = 12.4;
   D.JUMP_V = 8.4; D.GRAVITY = 24;
 
@@ -25,7 +25,7 @@
     gel:       { label: 'ГЕЛЬ', bonus: 10, sub: '+39 энергии', color: '#ff2e93' },
     banana:    { label: 'БАНАН', bonus: 8, sub: '+44 к запасу калорий', color: '#ffd23f' },
     water:     { label: 'ВОДА', bonus: 5, sub: '+42 воды, пульс ниже', color: '#3fb7ff' },
-    breath:    { label: 'ДЫХАНИЕ', bonus: 3, sub: 'пульс ниже, каденс 172', color: '#9ff3ff' },
+    breath:    { label: 'ДЫХАНИЕ', bonus: 3, sub: 'пульс ниже, каденс не выше 172', color: '#9ff3ff' },
     pacer:     { label: 'ПЕЙСЕР', bonus: 5, sub: 'защита 8 сек', color: '#8b5cff' },
     caffeine:  { label: 'КОФЕИН', bonus: 12, sub: 'ускорение 6 сек', color: '#c07a3a' },
     magnesium: { label: 'МАГНИЙ', bonus: 4, sub: '+15 энергии, замедление снято', color: '#39e27a' },
@@ -275,7 +275,7 @@
     return {
       seed, plan, scenery: D.buildScenery(seed), rivals: D.initRivals(participants, seed),
       t: 0, pz: 0, px: 0, lane: 1, vx: 0, y: 0, vy: 0, speed: 0,
-      cad: D.CAD.comfort, energy: 100, cal: 100, water: 100, hr: 92,
+      cad: D.CAD.start, energy: 100, cal: 100, water: 100, hr: 92,
       bonus: 0, penalty: 0, slowT: 0, caffT: 0, pacerT: 0, invulnT: 0, magT: 0, flashT: 0, hitT: 0, pickT: 0, pickColor: '#fff',
       objIdx: 0, overtakes: 0, position: participants.length + 1, total: participants.length + 1,
       district: 0, unlocked: {}, warn: { energy: false, cal: false, water: false },
@@ -300,7 +300,9 @@
   D.speedFactors = function (g) {
     const res = (v) => (v < 25 ? 0.7 + 0.3 * (v / 25) : 1);
     const resF = res(g.energy) * res(g.cal) * res(g.water) * (g.hr > 186 ? 0.9 : 1);
-    const cadF = 1 + (g.cad - D.CAD.comfort) * 0.011;
+    // ниже комфортного каденса — неторопливая трусца: скорость падает быстрее, чем растёт выше него
+    const dc = g.cad - D.CAD.comfort;
+    const cadF = 1 + dc * (dc < 0 ? D.CAD.slopeLow : D.CAD.slope);
     // «форма»: каждый ресурс выше 60% даёт +5% к скорости — грамотное питание ускоряет
     const form = (g.energy > 60) + (g.cal > 60) + (g.water > 60);
     const formF = 1 + 0.05 * form;
@@ -317,7 +319,7 @@
       case 'gel': g.energy = Math.min(100, g.energy + 39); break;
       case 'banana': g.cal = Math.min(100, g.cal + 44); break;
       case 'water': g.water = Math.min(100, g.water + 42); g.hr = Math.max(80, g.hr - 8); break;
-      case 'breath': g.hr = Math.max(80, g.hr - 22); g.cad = D.CAD.comfort; break;
+      case 'breath': g.hr = Math.max(80, g.hr - 22); g.cad = Math.min(g.cad, D.CAD.comfort); break;
       case 'pacer': g.pacerT = 8; break;
       case 'caffeine': g.caffT = 6; g.slowT = 0; break;
       case 'magnesium': g.energy = Math.min(100, g.energy + 15); g.slowT = 0; g.magT = 1.4; break;

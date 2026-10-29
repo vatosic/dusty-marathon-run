@@ -87,6 +87,7 @@ for (const n of [0, 1, 5, 100]) {
 // 5. Столкновения, прыжок, неуязвимость, пейсер, кофеин
 function rigged(objs) {
   const g = D.newGame([], 1);
+  g.cad = D.CAD.comfort; // механики предметов проверяем на комфортном каденсе
   g.plan = { objs, rows: [] };
   g.scenery = null;
   return g;
@@ -201,11 +202,19 @@ for (const mode of ['perfect', 'smart', 'passive']) {
     }
     ok(g.finished, 'забег завершён');
     ok(g.result >= D.RECORD_SEC, 'не быстрее рекорд-лимита');
+    if (mode === 'passive') ok(g.result > 4 * 3600, 'без управления — дольше 4:00:00');
     res.push({ game: fmtMS(g.finishT), raw: fmt(g.rawResult), result: fmt(g.result), pos: g.finalPos, minE: minE | 0, minW: minW | 0, minC: minC | 0,
       hits: JSON.stringify(g.stats.hits).replace(/[{}"]/g,''), form: (g.formAvg || 0).toFixed(2) });
   }
   console.log({ perfect: 'Идеальный бот:', smart: 'Средний бот:', passive: 'Пассивный (без управления):' }[mode]);
   console.table(res);
+}
+// без управления марафон всегда дольше 4:00:00 — проверяем шире, чем в таблице
+for (let s = 9; s <= 40; s++) {
+  const g = D.newGame(D.demoParticipants(), s * 1013);
+  let steps = 0;
+  while (!g.finished && steps < 60 * 900) { D.update(g, 1 / 60); steps++; g.events.length = 0; }
+  ok(g.finished && g.result > 4 * 3600, `без управления дольше 4:00:00 (seed ${s}: ${fmt(g.result || 0)})`);
 }
 function fmtMS(s) { return Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'); }
 function fmt(s) { s = Math.round(s); return Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
