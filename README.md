@@ -29,7 +29,7 @@
 
 ## Публикация через GitHub Pages
 В репозитории есть `.github/workflows/pages.yml`: при каждом пуше в `main` он прогоняет `node test/test.js`,
-собирает игру и выкладывает `dist/` на GitHub Pages. Один раз включите в настройках репозитория
+собирает игру и выкладывает `dist/` на GitHub Pages. В pull request'ах в `main` — только тесты и сборка, без публикации. Один раз включите в настройках репозитория
 Settings → Pages → Source: **GitHub Actions**.
 
 ## Локальная проверка в браузере

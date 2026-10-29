@@ -13,6 +13,7 @@
   без DOM), `audio.js` (Web Audio), `main.js` (игровой цикл, ввод, HUD, экраны).
 - `build.sh` склеивает всё в один файл `dist/index.html`. Three.js грузится с cdn.jsdelivr.net (three@0.149.0, UMD).
 - `.github/workflows/pages.yml` — при пуше в `main`: `node test/test.js` → сборка → публикация `dist/` на GitHub Pages.
+  В PR в `main` — только тесты и сборка. Изменения — через ветку и PR, в `main` вливать после проверки.
 
 ## Команды
 - `sh build.sh` — собрать. После любых правок в `part1`/`part2` пересобрать и закоммитить `dist/index.html`.

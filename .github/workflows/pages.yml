@@ -3,15 +3,16 @@ name: Проверка и публикация
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# у каждой ветки своя очередь: проверка PR не отменяет выкладку из main
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,9 +32,14 @@ jobs:
         with:
           path: dist
 
+  # публикуем только из main; в PR — только тесты и сборка
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
