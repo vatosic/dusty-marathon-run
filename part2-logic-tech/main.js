@@ -10,7 +10,10 @@
   const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
   let g = null, state = 'menu', paused = false, last = 0, hudT = 0, finishDelay = 0, countT = 0, countShown = -1;
-  let roster = { participants: D.demoParticipants(), demo: true, stats: null, file: '' };
+  // соперники: club — встроенный список клуба (по умолчанию), demo — вымышленные прозвища, file — загруженная выгрузка
+  const clubRoster = () => ({ participants: D.clubParticipants(), mode: 'club', stats: null, file: '' });
+  const demoRoster = () => ({ participants: D.demoParticipants(), mode: 'demo', stats: null, file: '' });
+  let roster = clubRoster();
   const reduceMQ = G.matchMedia ? G.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /* ---------- участники ---------- */
@@ -19,32 +22,36 @@
       const raw = G.localStorage.getItem(STORE);
       if (raw) {
         const v = JSON.parse(raw);
-        if (v && Array.isArray(v.participants)) roster = { participants: v.participants.slice(0, 100).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 24), count: p.count | 0 })), demo: false, stats: v.stats, file: v.file || '' };
+        if (v && v.mode === 'demo') roster = demoRoster();
+        else if (v && Array.isArray(v.participants)) roster = { participants: v.participants.slice(0, 100).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 24), count: p.count | 0 })), mode: 'file', stats: v.stats, file: v.file || '' };
       }
-    } catch (e) { /* хранилище недоступно — остаётся демо */ }
+    } catch (e) { /* хранилище недоступно — остаётся список клуба */ }
   }
   function saveRoster() {
     try {
-      if (roster.demo) G.localStorage.removeItem(STORE);
+      if (roster.mode === 'club') G.localStorage.removeItem(STORE);
+      else if (roster.mode === 'demo') G.localStorage.setItem(STORE, JSON.stringify({ mode: 'demo' }));
       else G.localStorage.setItem(STORE, JSON.stringify({ participants: roster.participants, stats: roster.stats, file: roster.file }));
     } catch (e) { /* без сохранения */ }
   }
   function renderRoster() {
     const n = roster.participants.length;
-    $('partSummary').innerHTML = roster.demo
-      ? 'Соперники: <span class="mode-tag">демо-режим</span>'
+    $('partSummary').innerHTML = roster.mode === 'demo' ? 'Соперники: <span class="mode-tag">демо-режим</span>'
+      : roster.mode === 'club' ? 'Соперники: <span class="mode-tag real">клуб, ' + n + '</span>'
       : 'Соперники: <span class="mode-tag real">загружено ' + n + '</span>';
     const st = roster.stats;
-    $('partStatus').textContent = roster.demo
+    $('partStatus').textContent = roster.mode === 'demo'
       ? 'Сейчас на трассе 100 вымышленных бегунов с шуточными прозвищами. Это не настоящие участники и не рейтинг клуба.'
+      : roster.mode === 'club'
+      ? 'На трассе ' + n + ' участников клуба «Пыльные Гантели» — первые по числу заказов на лонги DDLONG (выгрузка ' + D.CLUB_ROSTER_DATE + '; заказ — это регистрация, а не подтверждённое посещение). Порядок на старте и темп в каждом забеге случайные. Ближе к финишу на трассу выходят звёзды бега России.'
       : 'Из файла «' + roster.file + '»: строк ' + (st ? st.rows : '?') + ', записей клуба ' + (st ? st.clubRows : '?') + ', уникальных участников ' + (st ? st.unique : '?') + '. В забеге — первые ' + n + ' по числу посещённых лонгов.' +
         (st && st.mode === 'events' && !st.attendedKnown ? ' В файле нет колонки attended, поэтому посещения не отделены от регистраций.' : '') +
         (st && st.skippedNoId ? ' Пропущено строк без ID: ' + st.skippedNoId + '.' : '');
     const ol = $('partList'); ol.textContent = '';
-    if (!roster.demo) {
-      roster.participants.forEach((p) => { const li = document.createElement('li'); li.textContent = p.name + ' — ' + p.count; ol.appendChild(li); });
+    if (roster.mode !== 'demo') {
+      roster.participants.forEach((p) => { const li = document.createElement('li'); li.textContent = p.name + (roster.mode === 'file' ? ' — ' + p.count : ''); ol.appendChild(li); });
     }
-    ol.style.display = roster.demo ? 'none' : '';
+    ol.style.display = roster.mode === 'demo' ? 'none' : '';
   }
   $('fileInput').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
@@ -55,7 +62,7 @@
       try {
         const res = D.importParticipants(String(fr.result), file.name, 100);
         if (!res.participants.length) throw new Error('В файле не нашлось участников клуба «Пыльные Гантели» с ID.');
-        roster = { participants: res.participants, demo: false, stats: res.stats, file: file.name.slice(0, 60) };
+        roster = { participants: res.participants, mode: 'file', stats: res.stats, file: file.name.slice(0, 60) };
         saveRoster(); renderRoster();
       } catch (err) { $('partError').textContent = err.message; }
       e.target.value = '';
@@ -63,7 +70,8 @@
     fr.onerror = () => { $('partError').textContent = 'Не удалось прочитать файл.'; };
     fr.readAsText(file, 'utf-8');
   });
-  $('btnDemo').addEventListener('click', () => { roster = { participants: D.demoParticipants(), demo: true, stats: null, file: '' }; saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('btnDemo').addEventListener('click', () => { roster = demoRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('btnClub').addEventListener('click', () => { roster = clubRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
 
   /* ---------- звук ---------- */
   function soundUI() {
@@ -185,6 +193,7 @@
         case 'shield': toast(e.title, e.sub, 'good'); A.play('shield'); break;
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
+        case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
       }
@@ -210,7 +219,8 @@
     $('fItems').textContent = 'Подобрано: ' + (it || 'ничего') + '.';
     $('fHits').textContent = 'Столкновения: ' + (ht || 'ни одного') + (g.stats.shield ? '; пейсер защитил ×' + g.stats.shield : '') + '.';
     $('fNote').textContent = (g.total > 1 ? 'Место считается по итоговому времени с бонусами и штрафами. ' : 'Соперников нет — ты бежишь один. ') +
-      (roster.demo ? 'Соперники — демонстрационный список вымышленных бегунов.' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (roster.mode === 'demo' ? 'Соперники — демонстрационный список вымышленных бегунов.' : roster.mode === 'club' ? 'Соперники — участники клуба «Пыльные Гантели».' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (g.starsOn ? ' Звёзд бега позади: ' + g.stats.stars + ' из ' + D.STARS.length + ' — в место они не входят.' : '') +
       ' Трасса — художественная адаптация, не GPS-копия.';
     show('finish');
     document.body.classList.remove('playing');

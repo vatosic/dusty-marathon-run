@@ -1,5 +1,6 @@
 /* Проверка игровых правил: node test/test.js */
 require('../part2-logic-tech/data.js');
+require('../part2-logic-tech/club.js');
 require('../part2-logic-tech/sim.js');
 const D = globalThis.DUSTY;
 let fails = 0, passes = 0;
@@ -75,6 +76,15 @@ ok(D.findDistrict(6.9) === 0 && D.findDistrict(7) === 1 && D.findDistrict(24) ==
   let threw = false; try { D.importParticipants('a,b\n1,2', 'x.csv'); } catch (e) { threw = true; }
   ok(threw, 'понятная ошибка без нужных колонок');
   ok(D.demoParticipants().length === 100 && new Set(D.demoParticipants().map((p) => p.name)).size === 100, 'демо: 100 уникальных');
+}
+
+// 3b. Встроенный список клуба и звёзды бега
+{
+  const club = D.clubParticipants();
+  ok(club.length === 100 && new Set(club.map((p) => p.name)).size === 100, 'клуб: 100 уникальных имён');
+  ok(club.every((p) => p.count === null && /^club-\d{3}$/.test(p.id) && p.name.length <= 24 && !/[@\d]/.test(p.name)), 'клуб: без ID сайта, счётчиков и контактов');
+  ok(!club.some((p) => /EVENT/i.test(p.name)), 'клуб: служебный аккаунт исключён');
+  ok(D.STARS.length === 20 && new Set(D.STARS.map((st) => st.name)).size === 20 && D.STARS.every((st) => st.tag && ['sprint', 'mid', 'long'].includes(st.kind)), 'звёзды: 20 с подписями');
 }
 
 // 4. Позиция при разном числе соперников
@@ -209,6 +219,24 @@ for (const mode of ['perfect', 'smart', 'passive']) {
   console.log({ perfect: 'Идеальный бот:', smart: 'Средний бот:', passive: 'Пассивный (без управления):' }[mode]);
   console.table(res);
 }
+// звёзды бега: выходят один раз вне поля зрения, обгоны засчитываются, в место не входят
+for (const mode of ['smart', 'passive']) {
+  const g = D.newGame(D.clubParticipants(), mode === 'smart' ? 777 : 778);
+  let gap = null, starEvents = 0, steps = 0;
+  while (!g.finished && steps < 60 * 900) {
+    bot(g, mode); D.update(g, 1 / 60); steps++;
+    for (const e of g.events) {
+      if (e.kind === 'star') starEvents++;
+      if (e.kind === 'info' && /ЗВЁЗДЫ/.test(e.title)) gap = Math.min(...g.rivals.filter((rv) => rv.star).map((rv) => rv.z - g.pz));
+    }
+    g.events.length = 0;
+  }
+  ok(g.rivals.filter((rv) => rv.star).length === D.STARS.length, `звёзды вышли на трассу один раз (${mode})`);
+  ok(gap >= 179, `звёзды появляются вне поля зрения (${mode}: ${gap | 0})`);
+  ok(starEvents === g.stats.stars && g.stats.stars >= 8 && g.stats.stars <= D.STARS.length, `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
+  ok(g.total === 101 && g.finalPos >= 1 && g.finalPos <= 101, `звёзды не входят в место (${mode})`);
+}
+
 // без управления марафон всегда дольше 4:00:00 — проверяем шире, чем в таблице
 for (let s = 9; s <= 40; s++) {
   const g = D.newGame(D.demoParticipants(), s * 1013);

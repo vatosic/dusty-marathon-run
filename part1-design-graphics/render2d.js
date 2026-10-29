@@ -900,7 +900,7 @@
           at(o.x); ctx.globalAlpha = a * clamp((dz - (cam.back - 1.2)) / 1.5, 0, 1); shadow(ctx, 0.32);
           runnerBack(ctx, o.look, o.phase, null, { bib: true });
           ctx.restore();
-          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05, dz), s, name: o.name, a, id: o.id });
+          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05, dz), s, name: o.star ? '★ ' + o.name : o.name, star: o.star, a, id: o.id });
           break;
         }
         case 'pacer': {
@@ -989,7 +989,7 @@
       const amp = reduced ? 0 : size * 0.12;
       ctx.globalAlpha = lb.a;
       ctx.lineWidth = Math.max(2.5, size * 0.24);
-      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
       let i = 0;
       for (const ch of lb.name) {
         const cw = ctx.measureText(ch).width;

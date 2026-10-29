@@ -298,7 +298,7 @@
       const rv = vis[i];
       crowd.add({ x: rv.x, z: Z(rv.z) }, rv.look, (J) => D.Chars.poseRun(J, rv.phase, 0.8 + rv.v / 60, 0.12));
       const dz = rv.z - g.pz;
-      if (dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.name, dz });
+      if (dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.star ? '★ ' + rv.name : rv.name, star: rv.star, dz });
     }
 
     // болельщики, гуляющие, диджей
@@ -401,7 +401,7 @@
       if (boxes.some((b) => b.x0 < box.x1 && b.x1 > box.x0 && b.y0 < box.y1 && b.y1 > box.y0)) continue;
       boxes.push(box);
       c.globalAlpha = clamp((70 - lb.dz) / 20, 0, 1);
-      c.lineWidth = Math.max(2.5, size * 0.24); c.strokeStyle = 'rgba(30,11,46,0.85)'; c.fillStyle = '#ffffff';
+      c.lineWidth = Math.max(2.5, size * 0.24); c.strokeStyle = 'rgba(30,11,46,0.85)'; c.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
       let x = p.x - w / 2, i = 0;
       const amp = reduced ? 0 : size * 0.12;
       for (const ch of lb.name) {

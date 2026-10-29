@@ -67,7 +67,7 @@ body.playing #hud { display: flex; }
 .toast { text-align: center; padding: 5px 14px 6px; border-radius: 14px; background: var(--panel-strong); animation: toast 2.3s ease-out forwards; max-width: 92vw; }
 .toast b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(14px, 4.2vw, 18px); line-height: 1.15; }
 .toast span { display: block; font-size: 12px; color: var(--muted); }
-.toast.good b { color: var(--good); } .toast.bad b { color: var(--bad); } .toast.info b { color: #fff; }
+.toast.good b { color: var(--good); } .toast.bad b { color: var(--bad); } .toast.info b { color: #fff; } .toast.star b { color: #ffd23f; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 10% { opacity: 1; transform: translateY(0); } 75% { opacity: 1; transform: translateY(-4px); } 100% { opacity: 0; transform: translateY(-10px); } }
 #warns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .warn { display: none; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9px; line-height: 1.3; background: #ffd23f; color: var(--ink); }
@@ -240,12 +240,13 @@ details.part[open] summary::after { content: " ▴"; }
     <details class="part" id="partBox">
       <summary id="partSummary">Соперники</summary>
       <p id="partStatus"></p>
-      <p>Загрузи выгрузку посещений с сайта Дасти (CSV или JSON). В игру попадут 100 участников клуба «Пыльные Гантели» с наибольшим числом посещённых лонгов. Сохраняются только ID, имя и число посещений.</p>
+      <p>Можно загрузить свою выгрузку посещений с сайта Дасти (CSV или JSON). В игру попадут 100 участников клуба «Пыльные Гантели» с наибольшим числом посещённых лонгов. Файл остаётся в браузере: сохраняются только ID, имя и число посещений.</p>
       <p>Подходит одна из структур: <code>id, name, club, long_runs_attended</code> или записи посещений <code>user_id, name, club, event_id, attended</code>.</p>
       <div class="row">
         <label class="btn-sec" for="fileInput">Загрузить файл участников</label>
         <input type="file" id="fileInput" accept=".csv,.json,text/csv,application/json">
-        <button class="btn-sec" id="btnDemo">Вернуть демо-список</button>
+        <button class="btn-sec" id="btnClub">Участники клуба</button>
+        <button class="btn-sec" id="btnDemo">Демо-список</button>
       </div>
       <p id="partError" class="err" role="alert"></p>
       <ol id="partList"></ol>
@@ -372,6 +373,33 @@ details.part[open] summary::after { content: " ▴"; }
     return out;
   };
 
+  /* Звёзды бега на последних километрах: известные бегуны России по открытым источникам (новости ВФЛА-стартов,
+     Казанский и Московский марафоны, чемпионат России 2026). Подписи — только подтверждённые факты; результатов
+     за них игра не придумывает: в место и итоговое время звёзды не входят. kind: sprint / mid / long — кого догнать проще. */
+  D.STARS_KM = 30; // выходят на трассу вне поля зрения, догнать их можно с ~35 км
+  D.STARS = [
+    { name: 'Николай Грудковский', female: false, kind: 'sprint', tag: 'чемпион России на 100 м, 2026' },
+    { name: 'Юлия Караваева', female: true, kind: 'sprint', tag: 'чемпионка России на 100 м, 2026' },
+    { name: 'Вера Филатова', female: true, kind: 'sprint', tag: 'чемпионка России на 200 м, 2026' },
+    { name: 'Константин Крылов', female: false, kind: 'sprint', tag: 'один из сильнейших спринтеров России' },
+    { name: 'Виктория Максимова', female: true, kind: 'sprint', tag: 'призёр чемпионата России на 100 и 200 м, 2026' },
+    { name: 'Дарья Осипова', female: true, kind: 'sprint', tag: 'бронза чемпионата России на 100 м, 2026' },
+    { name: 'Алексей Данилов', female: false, kind: 'sprint', tag: 'чемпион России на 400 м, 2026' },
+    { name: 'Кирилл Анисимов', female: false, kind: 'mid', tag: 'чемпион России на 800 м, 2026' },
+    { name: 'Егор Лимонов', female: false, kind: 'mid', tag: 'чемпион России на 1500 м, 2026' },
+    { name: 'Сергей Дубровский', female: false, kind: 'mid', tag: 'призёр чемпионата России на 800 и 1500 м, 2026' },
+    { name: 'Лилия Мендаева', female: true, kind: 'mid', tag: 'чемпионка России в помещении на 1500 и 3000 м' },
+    { name: 'Ольга Вовк', female: true, kind: 'mid', tag: 'стайер, 5000 м' },
+    { name: 'Светлана Аплачкина', female: true, kind: 'mid', tag: 'рекорд России на 10 км по шоссе' },
+    { name: 'Сергей Шаров', female: false, kind: 'mid', tag: 'победитель Казанского марафона на 10 км' },
+    { name: 'Луиза Дмитриева', female: true, kind: 'long', tag: 'победительница Московского марафона 2023' },
+    { name: 'Искандер Ядгаров', female: false, kind: 'long', tag: 'победитель Московского марафона' },
+    { name: 'Степан Киселёв', female: false, kind: 'long', tag: 'победитель Московского и Казанского марафонов' },
+    { name: 'Ринас Ахмадеев', female: false, kind: 'long', tag: 'призёр Московского полумарафона 2026' },
+    { name: 'Дмитрий Неделин', female: false, kind: 'long', tag: 'чемпион России по марафону 2025' },
+    { name: 'Владимир Никитин', female: false, kind: 'long', tag: 'рекордсмен России в марафоне' }
+  ];
+
   const normClub = (s) => String(s == null ? '' : s)
     .toLowerCase().replace(/ё/g, 'е').replace(/[«»"'“”„]/g, ' ')
     .replace(/[\s\u00a0]+/g, ' ').trim();
@@ -491,6 +519,121 @@ details.part[open] summary::after { content: " ▴"; }
     stats.selected = top.length;
     return { participants: top, stats };
   };
+})(typeof globalThis !== 'undefined' ? globalThis : window);
+
+</script>
+<script>
+/* part2-logic-tech/club.js */
+/* DUSTY Marathon Run — встроенный список соперников: участники клуба «Пыльные Гантели».
+   Сгенерировано club_roster.py из выгрузки заказов DDLONG; первые 100 аккаунтов по числу заказов
+   (заказы — это регистрации, не подтверждённые посещения). Только имена: без ID, контактов и счётчиков. */
+(function (G) {
+  'use strict';
+  const D = G.DUSTY;
+  D.CLUB_ROSTER_DATE = "28.10.2026"; // срез выгрузки
+  D.CLUB_ROSTER_NAMES = [
+    "Сергей Скрябин",
+    "Антон Гороховатский",
+    "Дмитрий Рыжков",
+    "Павел Садовников",
+    "Карина Мамадиева",
+    "Anna Назарян",
+    "Николай Нагорных",
+    "Павел Товкач",
+    "Булат Байминов",
+    "Анна Краснорутская",
+    "Александра Бельченкова",
+    "Инна Гуслистова",
+    "Дмитрий Терещенко",
+    "Александр Мещеряков",
+    "Павел Сальников",
+    "Евгения Авдеева",
+    "Николай Глухов",
+    "Ольга Спирина",
+    "Дмитрий Галицкий",
+    "Alena Satleykina",
+    "Ринат Давлеев",
+    "Irina Kostkina",
+    "Мария Кутовая",
+    "Надя Белых",
+    "Леонид Богатырёв",
+    "Руслан Ишемгулов",
+    "Татьяна Белева",
+    "Вадим Юдин",
+    "Павел Десятчиков",
+    "Татьяна Сенюкова",
+    "Сергей Киричков",
+    "Анна Фомина",
+    "Maria Rybkina",
+    "Виктор Мартынов",
+    "Александр Куприков",
+    "Юрий Онищенко",
+    "Ильдар Сарибжанов",
+    "Максим Кубышко",
+    "Кристина Кочеткова",
+    "Элен Запашная",
+    "Ольга Душенко",
+    "Александр Запорожец",
+    "Виктор Доронин",
+    "Андрей Пискунов",
+    "Антон Самохвалов",
+    "Дарья Ковальчук",
+    "Феликс Кэтчер",
+    "Олег Савушкин",
+    "Алексей Карев",
+    "Наталия Касап",
+    "Andy Hoffman",
+    "Иван Кураев",
+    "Алексей Комаров",
+    "Stas Sharapov",
+    "Варвара Данилова",
+    "Александр Катюнин",
+    "Олег Глебов",
+    "Алена Чухнова",
+    "Дмитрий Картавов",
+    "Сергей Горев",
+    "Екатерина Голенкова",
+    "Александр Мартьянов",
+    "Ульяна Луцева",
+    "Екатерина Вагнер",
+    "Олег Губяк",
+    "Дина В",
+    "Дмитрий Афонин",
+    "Александр Иванов",
+    "Ярослав Тимощук",
+    "Валерий Пономарев",
+    "Клим Амосов",
+    "Ангелина Шилкина",
+    "Михаил Чуваров",
+    "Константин Бейн",
+    "Матвей Терентьев",
+    "Галина Рагозина",
+    "Оксана Медведева",
+    "Екатерина Соколова",
+    "Александр Андрюнин",
+    "Анастасия Шилина",
+    "Анна Гусева",
+    "Светлана Жикина",
+    "Елизавета Брыгалина",
+    "Артём Крепостнов",
+    "Петр Карпов",
+    "Дмитрий Гордеев",
+    "Игорь Кибанов",
+    "Андрей Фильчаков",
+    "Сергей Лихачёв",
+    "Женя Меркулова",
+    "Сергей Блинов",
+    "Марина Базан",
+    "Николай Панченко",
+    "Мария Голубева",
+    "Никита Шестериков",
+    "Roman Lipatov",
+    "Артём Лаврентьев",
+    "Олеся Винке",
+    "Алена Вольфович",
+    "Михаил Мещеряков"
+  ];
+  D.clubParticipants = () => D.CLUB_ROSTER_NAMES.map((name, i) => ({ id: 'club-' + String(i + 1).padStart(3, '0'), name, count: null }));
 })(typeof globalThis !== 'undefined' ? globalThis : window);
 
 </script>
@@ -766,6 +909,30 @@ details.part[open] summary::after { content: " ▴"; }
   };
   D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * t);
 
+  /* ---------------- Звёзды бега ---------------- */
+  // Выходят на D.STARS_KM вне поля зрения. Темп — от среднего темпа игрока: при нём встречи идут с ~35 км
+  // до финиша, сначала спринтеры, последними марафонцы; двух последних без ускорения до финиша не догнать.
+  const STAR_F = { sprint: [0.45, 0.55], mid: [0.55, 0.65], long: [0.66, 0.76] };
+  function spawnStars(g) {
+    const r = mulberry32(g.seed ^ 0x5ea75);
+    const vAvg = g.pz / Math.max(1, g.t);
+    const order = ['sprint', 'mid', 'long'].reduce((a, k) => a.concat(shuffle(r, D.STARS.filter((st) => st.kind === k))), []);
+    const n = order.length, S = D.zToKm(g.pz), endKm = D.KM_TOTAL + 0.4;
+    order.forEach((st, k) => {
+      const C = D.kmToZ((endKm - S) * (0.45 + 0.55 * k / Math.max(1, n - 1))); // путь игрока до встречи
+      const fr = STAR_F[st.kind], f = fr[0] + r() * (fr[1] - fr[0]);
+      const d = Math.max(180, (1 - f) * C);
+      const v = Math.max(vAvg * 0.3, vAvg * (C - d) / C);
+      const lane = Math.floor(r() * 3);
+      g.rivals.push({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, z0: g.pz + d - v * g.t, v, T: 0,
+        bumpT: 0, bumpDir: 1, lane, x: LANES[lane], z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
+        look: { skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
+          shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false } });
+    });
+    g.starsOn = true;
+    g.events.push({ kind: 'info', title: 'ЗВЁЗДЫ БЕГА НА ТРАССЕ', sub: 'лучшие бегуны России впереди — догони до финиша' });
+  }
+
   /* ---------------- Состояние забега ---------------- */
   D.newGame = function (participants, seed) {
     seed = seed >>> 0;
@@ -778,7 +945,7 @@ details.part[open] summary::after { content: " ▴"; }
       objIdx: 0, overtakes: 0, position: participants.length + 1, total: participants.length + 1,
       district: 0, unlocked: {}, warn: { energy: false, cal: false, water: false },
       finished: false, finishT: 0, result: 0, finalPos: 0, phase: 0,
-      stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0 },
+      starsOn: false, stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0, stars: 0 },
       events: []
     };
   };
@@ -920,13 +1087,17 @@ details.part[open] summary::after { content: " ▴"; }
     }
 
     // соперники
+    if (!g.starsOn && km >= D.STARS_KM) spawnStars(g);
     let ahead = 0;
     const rows = g.plan.rows;
     for (const rv of g.rivals) {
       rv.z = D.rivalZ(rv, g.t);
       const isAhead = rv.z > g.pz;
       rv.ahead = isAhead;
-      if (isAhead) ahead++;
+      if (rv.star) {
+        // финишировавшая раньше игрока звезда (z = L) не обогнана
+        if (!isAhead && !rv.passed && rv.z < L) { rv.passed = true; g.stats.stars++; g.events.push({ kind: 'star', title: rv.name + ' позади', sub: rv.tag }); }
+      } else if (isAhead) ahead++;
       const dz = rv.z - g.pz;
       if (dz > -12 && dz < 160) {
         rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
@@ -979,7 +1150,7 @@ details.part[open] summary::after { content: " ▴"; }
       g.rawResult = Math.max(0, g.finishT * TS + g.penalty - g.bonus);
       g.result = D.finalTime(g.rawResult);
       g.recordCapped = g.rawResult < D.RECORD_SEC;
-      g.finalPos = 1 + g.rivals.filter((rv) => rv.T * TS < g.result).length;
+      g.finalPos = 1 + g.rivals.filter((rv) => !rv.star && rv.T * TS < g.result).length;
       g.formAvg = g.formSum / Math.max(1, g.t);
       g.overtakes = g.total - g.finalPos;
       g.finished = true;
@@ -2020,7 +2191,7 @@ details.part[open] summary::after { content: " ▴"; }
           at(o.x); ctx.globalAlpha = a * clamp((dz - (cam.back - 1.2)) / 1.5, 0, 1); shadow(ctx, 0.32);
           runnerBack(ctx, o.look, o.phase, null, { bib: true });
           ctx.restore();
-          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05, dz), s, name: o.name, a, id: o.id });
+          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05, dz), s, name: o.star ? '★ ' + o.name : o.name, star: o.star, a, id: o.id });
           break;
         }
         case 'pacer': {
@@ -2109,7 +2280,7 @@ details.part[open] summary::after { content: " ▴"; }
       const amp = reduced ? 0 : size * 0.12;
       ctx.globalAlpha = lb.a;
       ctx.lineWidth = Math.max(2.5, size * 0.24);
-      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
       let i = 0;
       for (const ch of lb.name) {
         const cw = ctx.measureText(ch).width;
@@ -3522,7 +3693,7 @@ details.part[open] summary::after { content: " ▴"; }
       const rv = vis[i];
       crowd.add({ x: rv.x, z: Z(rv.z) }, rv.look, (J) => D.Chars.poseRun(J, rv.phase, 0.8 + rv.v / 60, 0.12));
       const dz = rv.z - g.pz;
-      if (dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.name, dz });
+      if (dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.star ? '★ ' + rv.name : rv.name, star: rv.star, dz });
     }
 
     // болельщики, гуляющие, диджей
@@ -3625,7 +3796,7 @@ details.part[open] summary::after { content: " ▴"; }
       if (boxes.some((b) => b.x0 < box.x1 && b.x1 > box.x0 && b.y0 < box.y1 && b.y1 > box.y0)) continue;
       boxes.push(box);
       c.globalAlpha = clamp((70 - lb.dz) / 20, 0, 1);
-      c.lineWidth = Math.max(2.5, size * 0.24); c.strokeStyle = 'rgba(30,11,46,0.85)'; c.fillStyle = '#ffffff';
+      c.lineWidth = Math.max(2.5, size * 0.24); c.strokeStyle = 'rgba(30,11,46,0.85)'; c.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
       let x = p.x - w / 2, i = 0;
       const amp = reduced ? 0 : size * 0.12;
       for (const ch of lb.name) {
@@ -3716,7 +3887,10 @@ details.part[open] summary::after { content: " ▴"; }
   const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
   let g = null, state = 'menu', paused = false, last = 0, hudT = 0, finishDelay = 0, countT = 0, countShown = -1;
-  let roster = { participants: D.demoParticipants(), demo: true, stats: null, file: '' };
+  // соперники: club — встроенный список клуба (по умолчанию), demo — вымышленные прозвища, file — загруженная выгрузка
+  const clubRoster = () => ({ participants: D.clubParticipants(), mode: 'club', stats: null, file: '' });
+  const demoRoster = () => ({ participants: D.demoParticipants(), mode: 'demo', stats: null, file: '' });
+  let roster = clubRoster();
   const reduceMQ = G.matchMedia ? G.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /* ---------- участники ---------- */
@@ -3725,32 +3899,36 @@ details.part[open] summary::after { content: " ▴"; }
       const raw = G.localStorage.getItem(STORE);
       if (raw) {
         const v = JSON.parse(raw);
-        if (v && Array.isArray(v.participants)) roster = { participants: v.participants.slice(0, 100).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 24), count: p.count | 0 })), demo: false, stats: v.stats, file: v.file || '' };
+        if (v && v.mode === 'demo') roster = demoRoster();
+        else if (v && Array.isArray(v.participants)) roster = { participants: v.participants.slice(0, 100).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 24), count: p.count | 0 })), mode: 'file', stats: v.stats, file: v.file || '' };
       }
-    } catch (e) { /* хранилище недоступно — остаётся демо */ }
+    } catch (e) { /* хранилище недоступно — остаётся список клуба */ }
   }
   function saveRoster() {
     try {
-      if (roster.demo) G.localStorage.removeItem(STORE);
+      if (roster.mode === 'club') G.localStorage.removeItem(STORE);
+      else if (roster.mode === 'demo') G.localStorage.setItem(STORE, JSON.stringify({ mode: 'demo' }));
       else G.localStorage.setItem(STORE, JSON.stringify({ participants: roster.participants, stats: roster.stats, file: roster.file }));
     } catch (e) { /* без сохранения */ }
   }
   function renderRoster() {
     const n = roster.participants.length;
-    $('partSummary').innerHTML = roster.demo
-      ? 'Соперники: <span class="mode-tag">демо-режим</span>'
+    $('partSummary').innerHTML = roster.mode === 'demo' ? 'Соперники: <span class="mode-tag">демо-режим</span>'
+      : roster.mode === 'club' ? 'Соперники: <span class="mode-tag real">клуб, ' + n + '</span>'
       : 'Соперники: <span class="mode-tag real">загружено ' + n + '</span>';
     const st = roster.stats;
-    $('partStatus').textContent = roster.demo
+    $('partStatus').textContent = roster.mode === 'demo'
       ? 'Сейчас на трассе 100 вымышленных бегунов с шуточными прозвищами. Это не настоящие участники и не рейтинг клуба.'
+      : roster.mode === 'club'
+      ? 'На трассе ' + n + ' участников клуба «Пыльные Гантели» — первые по числу заказов на лонги DDLONG (выгрузка ' + D.CLUB_ROSTER_DATE + '; заказ — это регистрация, а не подтверждённое посещение). Порядок на старте и темп в каждом забеге случайные. Ближе к финишу на трассу выходят звёзды бега России.'
       : 'Из файла «' + roster.file + '»: строк ' + (st ? st.rows : '?') + ', записей клуба ' + (st ? st.clubRows : '?') + ', уникальных участников ' + (st ? st.unique : '?') + '. В забеге — первые ' + n + ' по числу посещённых лонгов.' +
         (st && st.mode === 'events' && !st.attendedKnown ? ' В файле нет колонки attended, поэтому посещения не отделены от регистраций.' : '') +
         (st && st.skippedNoId ? ' Пропущено строк без ID: ' + st.skippedNoId + '.' : '');
     const ol = $('partList'); ol.textContent = '';
-    if (!roster.demo) {
-      roster.participants.forEach((p) => { const li = document.createElement('li'); li.textContent = p.name + ' — ' + p.count; ol.appendChild(li); });
+    if (roster.mode !== 'demo') {
+      roster.participants.forEach((p) => { const li = document.createElement('li'); li.textContent = p.name + (roster.mode === 'file' ? ' — ' + p.count : ''); ol.appendChild(li); });
     }
-    ol.style.display = roster.demo ? 'none' : '';
+    ol.style.display = roster.mode === 'demo' ? 'none' : '';
   }
   $('fileInput').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
@@ -3761,7 +3939,7 @@ details.part[open] summary::after { content: " ▴"; }
       try {
         const res = D.importParticipants(String(fr.result), file.name, 100);
         if (!res.participants.length) throw new Error('В файле не нашлось участников клуба «Пыльные Гантели» с ID.');
-        roster = { participants: res.participants, demo: false, stats: res.stats, file: file.name.slice(0, 60) };
+        roster = { participants: res.participants, mode: 'file', stats: res.stats, file: file.name.slice(0, 60) };
         saveRoster(); renderRoster();
       } catch (err) { $('partError').textContent = err.message; }
       e.target.value = '';
@@ -3769,7 +3947,8 @@ details.part[open] summary::after { content: " ▴"; }
     fr.onerror = () => { $('partError').textContent = 'Не удалось прочитать файл.'; };
     fr.readAsText(file, 'utf-8');
   });
-  $('btnDemo').addEventListener('click', () => { roster = { participants: D.demoParticipants(), demo: true, stats: null, file: '' }; saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('btnDemo').addEventListener('click', () => { roster = demoRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('btnClub').addEventListener('click', () => { roster = clubRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
 
   /* ---------- звук ---------- */
   function soundUI() {
@@ -3891,6 +4070,7 @@ details.part[open] summary::after { content: " ▴"; }
         case 'shield': toast(e.title, e.sub, 'good'); A.play('shield'); break;
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
+        case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
       }
@@ -3916,7 +4096,8 @@ details.part[open] summary::after { content: " ▴"; }
     $('fItems').textContent = 'Подобрано: ' + (it || 'ничего') + '.';
     $('fHits').textContent = 'Столкновения: ' + (ht || 'ни одного') + (g.stats.shield ? '; пейсер защитил ×' + g.stats.shield : '') + '.';
     $('fNote').textContent = (g.total > 1 ? 'Место считается по итоговому времени с бонусами и штрафами. ' : 'Соперников нет — ты бежишь один. ') +
-      (roster.demo ? 'Соперники — демонстрационный список вымышленных бегунов.' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (roster.mode === 'demo' ? 'Соперники — демонстрационный список вымышленных бегунов.' : roster.mode === 'club' ? 'Соперники — участники клуба «Пыльные Гантели».' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (g.starsOn ? ' Звёзд бега позади: ' + g.stats.stars + ' из ' + D.STARS.length + ' — в место они не входят.' : '') +
       ' Трасса — художественная адаптация, не GPS-копия.';
     show('finish');
     document.body.classList.remove('playing');

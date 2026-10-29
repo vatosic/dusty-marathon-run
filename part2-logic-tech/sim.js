@@ -268,6 +268,30 @@
   };
   D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * t);
 
+  /* ---------------- Звёзды бега ---------------- */
+  // Выходят на D.STARS_KM вне поля зрения. Темп — от среднего темпа игрока: при нём встречи идут с ~35 км
+  // до финиша, сначала спринтеры, последними марафонцы; двух последних без ускорения до финиша не догнать.
+  const STAR_F = { sprint: [0.45, 0.55], mid: [0.55, 0.65], long: [0.66, 0.76] };
+  function spawnStars(g) {
+    const r = mulberry32(g.seed ^ 0x5ea75);
+    const vAvg = g.pz / Math.max(1, g.t);
+    const order = ['sprint', 'mid', 'long'].reduce((a, k) => a.concat(shuffle(r, D.STARS.filter((st) => st.kind === k))), []);
+    const n = order.length, S = D.zToKm(g.pz), endKm = D.KM_TOTAL + 0.4;
+    order.forEach((st, k) => {
+      const C = D.kmToZ((endKm - S) * (0.45 + 0.55 * k / Math.max(1, n - 1))); // путь игрока до встречи
+      const fr = STAR_F[st.kind], f = fr[0] + r() * (fr[1] - fr[0]);
+      const d = Math.max(180, (1 - f) * C);
+      const v = Math.max(vAvg * 0.3, vAvg * (C - d) / C);
+      const lane = Math.floor(r() * 3);
+      g.rivals.push({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, z0: g.pz + d - v * g.t, v, T: 0,
+        bumpT: 0, bumpDir: 1, lane, x: LANES[lane], z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
+        look: { skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
+          shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false } });
+    });
+    g.starsOn = true;
+    g.events.push({ kind: 'info', title: 'ЗВЁЗДЫ БЕГА НА ТРАССЕ', sub: 'лучшие бегуны России впереди — догони до финиша' });
+  }
+
   /* ---------------- Состояние забега ---------------- */
   D.newGame = function (participants, seed) {
     seed = seed >>> 0;
@@ -280,7 +304,7 @@
       objIdx: 0, overtakes: 0, position: participants.length + 1, total: participants.length + 1,
       district: 0, unlocked: {}, warn: { energy: false, cal: false, water: false },
       finished: false, finishT: 0, result: 0, finalPos: 0, phase: 0,
-      stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0 },
+      starsOn: false, stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0, stars: 0 },
       events: []
     };
   };
@@ -422,13 +446,17 @@
     }
 
     // соперники
+    if (!g.starsOn && km >= D.STARS_KM) spawnStars(g);
     let ahead = 0;
     const rows = g.plan.rows;
     for (const rv of g.rivals) {
       rv.z = D.rivalZ(rv, g.t);
       const isAhead = rv.z > g.pz;
       rv.ahead = isAhead;
-      if (isAhead) ahead++;
+      if (rv.star) {
+        // финишировавшая раньше игрока звезда (z = L) не обогнана
+        if (!isAhead && !rv.passed && rv.z < L) { rv.passed = true; g.stats.stars++; g.events.push({ kind: 'star', title: rv.name + ' позади', sub: rv.tag }); }
+      } else if (isAhead) ahead++;
       const dz = rv.z - g.pz;
       if (dz > -12 && dz < 160) {
         rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
@@ -481,7 +509,7 @@
       g.rawResult = Math.max(0, g.finishT * TS + g.penalty - g.bonus);
       g.result = D.finalTime(g.rawResult);
       g.recordCapped = g.rawResult < D.RECORD_SEC;
-      g.finalPos = 1 + g.rivals.filter((rv) => rv.T * TS < g.result).length;
+      g.finalPos = 1 + g.rivals.filter((rv) => !rv.star && rv.T * TS < g.result).length;
       g.formAvg = g.formSum / Math.max(1, g.t);
       g.overtakes = g.total - g.finalPos;
       g.finished = true;
