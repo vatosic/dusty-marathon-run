@@ -215,6 +215,10 @@
         break;
       }
       case 'camera': arm('L', 1.35, 0.3, 1.9); arm('R', 1.35, -0.3, 1.9); J.head.rotation.x = 0.05; break;
+      // самокатчик: руки на руле, ноги на деке одна за другой
+      case 'scooter': arm('L', 0.95, -0.15, 0.45); arm('R', 0.95, 0.15, 0.45); J.hipL.rotation.x = 0.14; J.hipR.rotation.x = -0.1; J.kneeL.rotation.x = -0.12; J.torso.rotation.x = -0.1; break;
+      // волонтёр протягивает стакан
+      case 'offer': arm('L', 0.05, -0.12, 0.25); arm('R', 1.35, 0.1, 0.25); J.torso.rotation.z = 0.03 * Math.sin(k); J.head.rotation.x = 0.08; break;
       case 'sign': arm('L', 0.2, -2.9, 0.15); arm('R', 0.2, 2.9, 0.15); break;
       case 'highfive': arm('L', 0.05, -0.12, 0.25); arm('R', 0.25, 1.55, 0.15); J.torso.rotation.z = 0.08; break;
       case 'dj': { arm('L', 1.0, 0.2, 1.4 + 0.2 * Math.sin(k)); arm('R', 1.0 + 0.6 * Math.max(0, Math.sin(k * 0.5)), -0.2, 1.2); J.head.rotation.x = 0.25 * Math.abs(Math.sin(k)); J.pelvis.position.y = 0.94 + Math.abs(Math.sin(k)) * 0.025; break; }

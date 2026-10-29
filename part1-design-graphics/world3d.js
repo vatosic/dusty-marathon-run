@@ -81,6 +81,15 @@
     strip(-7.5, -2.75, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [3, len / 1.6]);
     strip(-2.45, 2.45, 0.0, lambert('#ffffff', { map: T.asphalt() }), [1, len / 8]);
     strip(2.75, 6.2, 0.06, lambert('#ffffff', { map: T.tiles('#b2a69c', 'rgba(70,60,55,0.35)') }), [2, len / 1.6]);
+    // Лужники: вместо асфальта беговое покрытие, на входе и выходе — белые поперечные линии
+    {
+      const ta = D.kmToZ(D.TRACK_KM[0]), tb = D.kmToZ(D.TRACK_KM[1]);
+      const tt = T.tartan().clone(); tt.needsUpdate = true; tt.repeat.set(1, (tb - ta) / 6);
+      const geo = new THREE.PlaneGeometry(4.9, tb - ta).rotateX(-PI / 2).translate(0, 0.004, -(ta + tb) / 2);
+      const m = new THREE.Mesh(geo, lambert('#ffffff', { map: tt })); m.receiveShadow = true; root.add(m);
+      const lineM = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+      for (const zz of [ta, tb]) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 0.35).rotateX(-PI / 2), lineM); ln.position.set(0, 0.008, Z(zz)); root.add(ln); }
+    }
     const curbMat = lambert('#dcd5c8');
     for (const [a, b] of [[-2.75, -2.45], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
     // гранитный парапет
@@ -235,11 +244,12 @@
     /* ---- арки: старт, точка Дасти, финиш ---- */
     const arch = (z, text, kind) => {
       const grp = new THREE.Group(); grp.position.z = Z(z);
-      const pc = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : PINK;
+      const pc = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : kind === 'km' ? LIME : kind === 'luzh' ? '#ffffff' : PINK;
       const pm = std(pc);
       for (const s of [-1, 1]) { const p = boxAt(unitBox, pm, s * 3.25 - 0.18, s * 3.25 + 0.18, 0, 5.7, -0.18, 0.18); p.position.z = 0; p.castShadow = true; grp.add(p); }
-      const face = new THREE.MeshBasicMaterial({ map: T.text(text, kind === 'finish' ? { bg: '#1e0b2e', fg: '#ffffff', checker: true, w: 1024, h: 192 } : kind === 'start' ? { bg: VIOLET, fg: LIME, stripe: LIME, w: 1024, h: 192 } : { bg: PINK, fg: '#ffffff', stripe: LIME, w: 1024, h: 192 }) });
-      const side = std(kind === 'finish' ? INK : pc);
+      const face = new THREE.MeshBasicMaterial({ map: T.text(text, kind === 'finish' ? { bg: '#1e0b2e', fg: '#ffffff', checker: true, w: 1024, h: 192 } : kind === 'start' ? { bg: VIOLET, fg: LIME, stripe: LIME, w: 1024, h: 192 }
+        : kind === 'km' ? { bg: VIOLET, fg: '#ffffff', stripe: LIME, w: 1024, h: 192 } : kind === 'luzh' ? { bg: '#c8102e', fg: '#ffffff', stripe: '#ffffff', w: 1024, h: 192 } : { bg: PINK, fg: '#ffffff', stripe: LIME, w: 1024, h: 192 }) });
+      const side = std(kind === 'finish' ? INK : kind === 'km' ? VIOLET : kind === 'luzh' ? '#c8102e' : pc);
       const banner = new THREE.Mesh(new THREE.BoxGeometry(6.9, 1.3, 0.3), [side, side, side, side, face, face]);
       banner.position.y = 5.3; banner.castShadow = true; grp.add(banner);
       root.add(grp);
@@ -247,6 +257,8 @@
     };
     arch(4, 'СТАРТ', 'start');
     arch(L, 'ФИНИШ', 'finish');
+    arch(D.kmToZ(D.TRACK_KM[0]) - 1.5, 'ЛУЖНИКИ', 'luzh');
+    for (const k of D.KM_MARKS) arch(D.kmToZ(k), k + ' КМ', 'km');
     const dustyArch = arch(sc.dj.z - 6, 'DUSTY · ПЫЛЬНЫЕ ГАНТЕЛИ', 'dusty');
     // гирлянда шаров на арке Дасти
     const balls = [];
@@ -285,6 +297,72 @@
       }
       root.add(grp);
       state.speakers = spk;
+    }
+
+    /* ---- рейв: точки поддержки Дасти со светомузыкой; на главной — баржа-сцена DJ KIM ---- */
+    state.raves = [];
+    {
+      const RAVE_COL = ['#ff2e93', '#6c2bd9', '#c8ff1a', '#21c6c6', '#ff7a1a'];
+      const additive = (color, opacity) => new THREE.MeshBasicMaterial({ color, map: T.beam(), transparent: true, opacity: opacity == null ? 0.55 : opacity,
+        depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+      // конус луча: источник в начале координат, луч вдоль −y
+      const beamGeo = (len, r) => new THREE.CylinderGeometry(0.06, r, len, 14, 1, true).translate(0, -len / 2, 0);
+      const truss = std('#2a2a33', { metalness: 0.6, roughness: 0.4 });
+      const strobeMat = () => new THREE.SpriteMaterial({ map: T.radial('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+      for (const rv of sc.raves) {
+        const grp = new THREE.Group(); grp.position.z = Z(rv.z); root.add(grp);
+        const R = { z: rv.z, main: rv.main, grp, heads: [], lasers: [], strobes: [], sky: [], range: rv.main ? 430 : 260 };
+        const head = (parent, x, y, z, len, r, i) => {
+          const pivot = new THREE.Group(); pivot.position.set(x, y, z); parent.add(pivot);
+          const can = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), truss); pivot.add(can);
+          const b = new THREE.Mesh(beamGeo(len, r), additive(RAVE_COL[i % RAVE_COL.length])); pivot.add(b);
+          R.heads.push({ pivot, beam: b, i });
+        };
+        if (rv.main) {
+          // баржа у набережной: корпус, подиум, LED-стена, ферма
+          const barge = new THREE.Group(); barge.position.set(13.5, 0, -6); grp.add(barge);
+          barge.add(boxAt(unitBox, std('#1c2433'), -5, 5, -2.6, -0.9, -9, 9));
+          barge.add(boxAt(unitBox, std('#15151b'), -4.2, 4.2, -0.9, 0.4, -7, 7));
+          const ledCanvas = document.createElement('canvas'); ledCanvas.width = 512; ledCanvas.height = 256;
+          const ledTex = new THREE.CanvasTexture(ledCanvas);
+          const led = new THREE.Mesh(new THREE.PlaneGeometry(9, 4.6), new THREE.MeshBasicMaterial({ map: ledTex, fog: false }));
+          led.position.set(1.5, 2.8, 0); led.rotation.y = -PI / 2.6; barge.add(led);
+          R.led = { canvas: ledCanvas, tex: ledTex, mesh: led, t: 0 };
+          const frame = new THREE.Group(); frame.position.copy(led.position); frame.rotation.copy(led.rotation); barge.add(frame);
+          for (const sx of [-4.9, 4.9]) frame.add(boxAt(unitBox, truss, sx - 0.15, sx + 0.15, -2.5, 3.6, -0.15, 0.15));
+          frame.add(boxAt(unitBox, truss, -5.1, 5.1, 3.5, 3.85, -0.2, 0.2));
+          for (let i = 0; i < 6; i++) head(frame, -4.2 + i * 1.68, 3.4, 0.5, 34, 2.4, i);
+          // лазеры над трассой
+          for (let i = 0; i < 7; i++) {
+            const pivot = new THREE.Group(); pivot.position.set(-4, 3.2, -2 + i * 0.6); barge.add(pivot);
+            const ln = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 34).translate(0, 0, -17), new THREE.MeshBasicMaterial({ color: i % 2 ? '#39ff6a' : '#ff2e93', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+            pivot.add(ln); R.lasers.push({ pivot, i, mat: ln.material });
+          }
+          // прожекторы в небо — видны издалека
+          for (const sx of [-4, 4]) {
+            const pivot = new THREE.Group(); pivot.position.set(sx, 0.5, sx * 1.5); barge.add(pivot);
+            const b = new THREE.Mesh(beamGeo(120, 3.5), additive('#ffffff', 0.22)); b.rotation.x = PI; pivot.add(b);
+            R.sky.push({ pivot, sx });
+          }
+          for (let i = 0; i < 4; i++) { const sp = new THREE.Sprite(strobeMat()); sp.scale.set(1.6, 1.6, 1); sp.position.set(-0.5, 6.2, -4 + i * 2.6); barge.add(sp); R.strobes.push(sp); }
+          // колонки на набережной
+          for (const zz of [-9, 9]) {
+            const stack = boxAt(unitBox, std('#15151b'), 3.6, 4.6, 0, 2.6, zz - 0.5, zz + 0.5); stack.position.z = Z(zz); grp.add(stack);
+          }
+        } else {
+          // точка поддержки: арка-ферма над набережной, колонки, лучи
+          const arch2 = new THREE.Group(); arch2.position.set(4.4, 0, 0); grp.add(arch2);
+          for (const sx of [-1.4, 1.6]) arch2.add(boxAt(unitBox, truss, sx - 0.12, sx + 0.12, 0, 4.2, -0.12, 0.12));
+          arch2.add(boxAt(unitBox, truss, -1.55, 1.75, 4.1, 4.4, -0.15, 0.15));
+          const ban = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.7, 0.08), [std(PINK), std(PINK), std(PINK), std(PINK),
+            new THREE.MeshBasicMaterial({ map: T.text('DUSTY RAVE', { bg: INK, fg: LIME, stripe: PINK, w: 512, h: 128 }) }), new THREE.MeshBasicMaterial({ map: T.text('DUSTY RAVE', { bg: INK, fg: LIME, stripe: PINK, w: 512, h: 128 }) })]);
+          ban.position.set(0.1, 3.7, 0.2); arch2.add(ban);
+          for (let i = 0; i < 4; i++) head(arch2, -1.2 + i * 0.85, 4.25, 0.3, 18, 1.4, i + 1);
+          for (const zz of [-3.5, 3.5]) { const st2 = boxAt(unitBox, std('#15151b'), 4.6, 5.6, 0, 2.1, -0.45, 0.45); st2.position.z = zz; grp.add(st2); }
+          for (let i = 0; i < 2; i++) { const sp = new THREE.Sprite(strobeMat()); sp.scale.set(1.1, 1.1, 1); sp.position.set(3.4 + i * 2.2, 4.3, 0.3); grp.add(sp); R.strobes.push(sp); }
+        }
+        state.raves.push(R);
+      }
     }
 
     /* ---- теплоходы ---- */
@@ -379,7 +457,50 @@
     place(bd.mgu, D.clamp(1 - Math.abs(km - 25) / 5, 0, 1), 170, 90);
     place(bd.kremlin, D.clamp((km - 35) / 3, 0, 1), -40, 70 * (1 + D.clamp((km - 35) / 7, 0, 1) * 1.2));
     if (st.balls) st.balls.forEach((b, i) => { b.position.y = 6.15 + Math.abs(Math.sin(t * 3 + i)) * 0.1; });
+    // рейв: лучи, лазеры и стробы в такт 128 BPM
+    const beat = t * 128 / 60, bi2 = Math.floor(beat), kick = Math.pow(1 - (beat % 1), 4);
+    const RAVE_COL = ['#ff2e93', '#6c2bd9', '#c8ff1a', '#21c6c6', '#ff7a1a'];
+    for (const R of st.raves) {
+      const near = Math.abs(R.z - g.pz) < R.range;
+      R.grp.visible = near;
+      if (!near) continue;
+      for (const h of R.heads) {
+        const a = t * (0.9 + (h.i % 3) * 0.25) + h.i * 1.3;
+        h.pivot.rotation.set(0.5 + 0.45 * Math.sin(a), 0, (h.i % 2 ? 1 : -1) * (0.7 + 0.5 * Math.cos(a * 0.7)));
+        h.beam.material.color.set(RAVE_COL[(h.i + (bi2 >> 2)) % RAVE_COL.length]);
+        h.beam.material.opacity = 0.32 + 0.4 * kick;
+      }
+      for (const l of R.lasers) {
+        l.pivot.rotation.set(0.12 + 0.1 * Math.sin(t * 1.7 + l.i), -0.35 - 0.5 * Math.sin(t * 0.9 + l.i * 0.45), 0);
+        l.mat.opacity = (bi2 + l.i) % 4 === 0 ? 0.25 : 0.85;
+      }
+      for (const s of R.sky) s.pivot.rotation.set(0.35 * Math.sin(t * 0.4 + s.sx), 0, 0.3 * Math.cos(t * 0.33 + s.sx));
+      R.strobes.forEach((sp, i) => { sp.material.opacity = (bi2 % 8 === 7 || (bi2 + i) % 4 === 0) ? kick : 0; });
+      if (R.led && (R.led.t += 1) % 2 === 0) drawLed(R.led, t, beat, kick);
+    }
   };
+
+  // LED-стена сцены: эквалайзер, вспышки на сильную долю и «DJ KIM»
+  function drawLed(led, t, beat, kick) {
+    const c = led.canvas, x = c.getContext('2d'), w = c.width, h = c.height;
+    const hue = (beat * 12) % 360;
+    x.fillStyle = '#05030a'; x.fillRect(0, 0, w, h);
+    const bg = x.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, 'hsla(' + hue + ',90%,45%,' + (0.25 + 0.35 * kick) + ')'); bg.addColorStop(1, 'hsla(' + (hue + 120) % 360 + ',90%,45%,' + (0.2 + 0.3 * kick) + ')');
+    x.fillStyle = bg; x.fillRect(0, 0, w, h);
+    const n = 24;
+    for (let i = 0; i < n; i++) {
+      const v = 0.25 + 0.75 * Math.abs(Math.sin(t * (2.1 + i * 0.37) + i * 1.7)) * (0.6 + 0.4 * kick);
+      x.fillStyle = 'hsl(' + (hue + i * 9) % 360 + ',95%,60%)';
+      x.fillRect(i * w / n + 3, h - v * h * 0.55, w / n - 6, v * h * 0.55);
+    }
+    x.font = '800 92px "Unbounded", "Arial Black", Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.shadowColor = '#ff2e93'; x.shadowBlur = 18 + 30 * kick;
+    x.fillStyle = '#ffffff'; x.fillText('DJ KIM', w / 2, h * 0.38);
+    x.shadowBlur = 0;
+    x.font = '700 30px "Golos Text", sans-serif'; x.fillStyle = '#c8ff1a'; x.fillText('DUSTY RAVE · 128 BPM', w / 2, h * 0.68);
+    led.tex.needsUpdate = true;
+  }
 
   W3.dispose = function (st, scene) {
     const kill = (o) => {

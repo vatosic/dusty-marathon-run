@@ -52,8 +52,8 @@ body.playing #hud { display: flex; }
 .meter .lab em { font-style: normal; color: var(--fg); font-weight: 700; font-variant-numeric: tabular-nums; }
 .bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.16); overflow: hidden; margin-top: 3px; }
 .bar i { display: block; height: 100%; width: 50%; border-radius: 4px; transition: width .2s linear; }
-.m-energy i { background: var(--pink); } .m-cal i { background: #ffd23f; } .m-water i { background: #3fb7ff; } .m-hr i { background: #ff5a5a; } .m-cad i { background: var(--lime); }
-.meter.low .lab em { color: #ffb36b; }
+.m-gel i { background: var(--pink); } .m-food i { background: #ffd23f; } .m-drink i { background: #3fb7ff; } .m-hr i { background: #ff5a5a; } .m-cad i { background: var(--lime); }
+.meter.low .lab em { color: #ffb36b; } .meter.empty .lab em { color: #ff6b6b; } .meter.empty .bar { box-shadow: inset 0 0 0 1px #ff6b6b; }
 .route { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-size: 12px; }
 .route b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58vw; }
 .track { position: relative; height: 6px; background: rgba(255,255,255,0.16); border-radius: 4px; }
@@ -71,6 +71,7 @@ body.playing #hud { display: flex; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 10% { opacity: 1; transform: translateY(0); } 75% { opacity: 1; transform: translateY(-4px); } 100% { opacity: 0; transform: translateY(-10px); } }
 #warns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .warn { display: none; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9px; line-height: 1.3; background: #ffd23f; color: var(--ink); }
+.warn.out { background: #ff5a5a; color: #fff; }
 .warn.show { display: block; }
 
 /* ---------- управление ---------- */
@@ -184,20 +185,20 @@ details.part[open] summary::after { content: " ▴"; }
       </div>
     </div>
     <div class="meters">
-      <div class="meter m-energy" id="mEnergy"><div class="lab">Энергия <em>100</em></div><div class="bar"><i></i></div></div>
-      <div class="meter m-cal" id="mCal"><div class="lab">Калории <em>100</em></div><div class="bar"><i></i></div></div>
-      <div class="meter m-water" id="mWater"><div class="lab">Вода <em>100</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-gel" id="mGel"><div class="lab">Гель <em>20 с</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-drink" id="mDrink"><div class="lab">Питьё <em>25 с</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-food" id="mFood"><div class="lab">Еда <em>30 с</em></div><div class="bar"><i></i></div></div>
       <div class="meter m-hr" id="mHr"><div class="lab">Пульс <em>90</em></div><div class="bar"><i></i></div></div>
-      <div class="meter m-cad" id="mCad"><div class="lab">Каденс <em>156</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-cad" id="mCad"><div class="lab">Каденс <em>160</em></div><div class="bar"><i></i></div></div>
     </div>
     <div class="route"><b id="hDistrict">Краснопресненская набережная</b><div class="track" id="track"><i id="hProg"></i></div></div>
     <div id="chips"></div>
   </div>
   <div class="hud-block" id="toasts"></div>
   <div class="hud-block" id="warns">
-    <div class="warn" id="wEnergy">Заканчивается энергия — съешь гель</div>
-    <div class="warn" id="wCal">Заканчивается запас калорий — съешь еду</div>
-    <div class="warn" id="wWater">Обезвоживание — выпей воду</div>
+    <div class="warn" id="wGel"></div>
+    <div class="warn" id="wDrink"></div>
+    <div class="warn" id="wFood"></div>
   </div>
 </div>
 
@@ -209,7 +210,7 @@ details.part[open] summary::after { content: " ▴"; }
   <div class="right-ctl">
   <div class="cadgrp">
     <button class="ctl" data-act="cadUp" aria-label="Каденс выше">+</button>
-    <span>каденс<b id="cCad">156</b></span>
+    <span>каденс<b id="cCad">160</b></span>
     <button class="ctl" data-act="cadDown" aria-label="Каденс ниже">−</button>
   </div>
   <button class="ctl jump" data-act="jump" aria-label="Прыжок"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg></button>
@@ -228,9 +229,11 @@ details.part[open] summary::after { content: " ▴"; }
     <p class="goal">Пробеги марафон по московским набережным — от Краснопресненской до Кремля. Обгоняй своих, вовремя ешь гели и пей воду, и финишируй с лучшим временем.</p>
     <dl class="how">
       <dt>Полосы</dt><dd>кнопки ◀ ▶, свайп или стрелки</dd>
-      <dt>Прыжок</dt><dd>тап в любом месте экрана, клик или пробел — через лужи, ограждения и собак</dd>
-      <dt>Каденс</dt><dd>старт с разминочного 156 — подними его кнопкой +, иначе так и проплетёшься. Выше — быстрее, но растут пульс и расход сил</dd>
-      <dt>Время</dt><dd>секунда игры — минута марафона. Сытый, напоённый и быстрый бегун ускоряется; быстрее 2:00:00 не пробежать</dd>
+      <dt>Прыжок</dt><dd>тап в любом месте экрана, клик или пробел — через лужи, фан-барьеры и собак. Волонтёра, фотографа и самокатчика — только обежать</dd>
+      <dt>Каденс</dt><dd>от 160 до 200 кнопками + и −: чем выше, тем быстрее. До 200 — только когда есть и гель, и питьё, и еда</dd>
+      <dt>Запасы</dt><dd>гель действует 20 с, питьё 25 с, еда 30 с. Пустой запас — каденс −10, за 5 с до конца будет предупреждение. Бустеры — кофеин, магний, пуэр — 5 с на каденсе 210</dd>
+      <dt>Столкновения</dt><dd>лужа сбивает каденс на 10, остальное — на 50, почти до шага; через 3 с темп вернётся</dd>
+      <dt>Время</dt><dd>секунда игры — минута марафона; быстрее 2:00:00 не пробежать</dd>
     </dl>
     <p class="note" id="gfxNote"></p>
     <div class="actions">
@@ -349,6 +352,10 @@ details.part[open] summary::after { content: " ▴"; }
   ];
   D.BRIDGES = [1.4, 7.4, 11.8, 17.2, 22.6, 27.0, 30.6, 34.6, 38.6, 41.7];
   D.DJ_KM = 24;
+  // Точки поддержки Дасти — рейв со светомузыкой; на главной (24 км, Лужники) играет DJ KIM
+  D.RAVE_KM = [11, 24, 33.5];
+  D.TRACK_KM = [22.6, 27.0]; // Лужники: беговое покрытие вместо асфальта (между мостами)
+  D.KM_MARKS = [5, 10, 15, 20, 25, 30, 35, 40];
 
   D.SIGNS = ['ДАВАЙ, ДАСТИ!', 'ПЫЛЬНЫЕ ГАНТЕЛИ', 'DUSTY', 'ТЫ УЖЕ КРАСАВЧИК', 'ГЕЛЬ СЪЕЛ?', 'БЕГИ, МЫ В ТЕБЯ ВЕРИМ', 'DUSTY DUMBBELLS', 'ЕЩЁ ЧУТЬ-ЧУТЬ'];
 
@@ -658,31 +665,56 @@ details.part[open] summary::after { content: " ▴"; }
   }
   D.rng = mulberry32;
 
-  D.CAD = { min: 156, max: 200, comfort: 172, start: 156, step: 4, slope: 0.011, slopeLow: 0.017 };
-  D.BASE_SPEED = 12.4;
+  // Каденс: игрок выбирает 160…200. Каждый пустой запас (гель, питьё, еда) −10, столкновение — на 3 с минус своё значение,
+  // бустер — 5 с на 210. Скорость растёт со степенью каденса: шаг чаще и длиннее.
+  D.CAD = { min: 160, max: 200, start: 160, step: 4, ref: 180, exp: 1.8, empty: 10, boost: 210, floor: 60 };
+  D.BASE_SPEED = 16.2;
   D.JUMP_V = 8.4; D.GRAVITY = 24;
 
+  // Запасы: сколько игровых секунд действует порция (секунда игры = минута марафона: гель — 20 минут бега)
+  D.SUPPLY = { gel: 20, drink: 25, food: 30 };
+  D.SUPPLY_WARN = 5;   // предупреждение за 5 с до конца запаса
+  D.BOOST_T = 5;       // бустер: 5 с на каденсе 210
+  D.HIT_T = 3;         // столкновение сбивает каденс на 3 с, затем он возвращается к прежнему
+  D.SUPPLY_NAME = { gel: 'гель', drink: 'питьё', food: 'еда' };
+
   D.ITEMS = {
-    gel:       { label: 'ГЕЛЬ', bonus: 10, sub: '+39 энергии', color: '#ff2e93' },
-    banana:    { label: 'БАНАН', bonus: 8, sub: '+44 к запасу калорий', color: '#ffd23f' },
-    water:     { label: 'ВОДА', bonus: 5, sub: '+42 воды, пульс ниже', color: '#3fb7ff' },
-    breath:    { label: 'ДЫХАНИЕ', bonus: 3, sub: 'пульс ниже, каденс не выше 172', color: '#9ff3ff' },
-    pacer:     { label: 'ПЕЙСЕР', bonus: 5, sub: 'защита 8 сек', color: '#8b5cff' },
-    caffeine:  { label: 'КОФЕИН', bonus: 12, sub: 'ускорение 6 сек', color: '#c07a3a' },
-    magnesium: { label: 'МАГНИЙ', bonus: 4, sub: '+15 энергии, замедление снято', color: '#39e27a' },
-    highfive:  { label: 'ДАЙ ПЯТЬ', bonus: 4, sub: '+12 энергии', color: '#c8ff1a' }
+    gel: { label: 'ГЕЛЬ', supply: 'gel', bonus: 10, color: '#ff2e93', variants: [
+      { id: 'sis', name: 'SiS', color: '#1f4fd1' }, { id: 'gel4u', name: 'GEL4U', color: '#ff7a1a' },
+      { id: 'gu', name: 'GU', color: '#e8365a' }, { id: 'maurten', name: 'Maurten', color: '#f1f1ec' }] },
+    drink: { label: 'ПИТЬЁ', supply: 'drink', bonus: 5, color: '#3fb7ff', variants: [
+      { id: 'water', name: 'Вода', color: '#9fdcff' }, { id: 'iso', name: 'Изотоник', color: '#ffb21a' }, { id: 'cola', name: 'Кола', color: '#c8102e' }] },
+    food: { label: 'ЕДА', supply: 'food', bonus: 8, color: '#ffd23f', variants: [
+      { id: 'banana', name: 'Банан', color: '#ffd23f' }, { id: 'orange', name: 'Апельсин', color: '#ff8c1a' }, { id: 'burger', name: 'Бургер', color: '#c9772e' }] },
+    boost: { label: 'БУСТЕР', bonus: 12, color: '#ff9b2e', variants: [
+      { id: 'caffeine', name: 'Кофеин', color: '#8a4f22' }, { id: 'magnesium', name: 'Магний', color: '#39e27a' }, { id: 'puer', name: 'Пуэр', color: '#7a2e1c' }] },
+    pacer: { label: 'ПЕЙСЕР', bonus: 5, sub: 'защита от столкновений 8 с', color: '#8b5cff' },
+    highfive: { label: 'ДАЙ ПЯТЬ', bonus: 4, sub: 'болельщики заряжают', color: '#c8ff1a' }
   };
+  D.variantOf = (o) => (D.ITEMS[o.type].variants || []).find((v) => v.id === o.variant) || null;
+
+  // cad — насколько столкновение сбивает каденс; t — сколько секунд (по умолчанию D.HIT_T)
   D.OBST = {
-    puddle:       { label: 'ЛУЖА', pen: 5, slow: 3, h: 0.14, w: 1.3, jump: true },
-    fence:        { label: 'ОГРАЖДЕНИЕ', pen: 8, energy: -12, h: 0.62, w: 1.3, jump: true },
-    barrier:      { label: 'ЗАГРАЖДЕНИЕ', pen: 10, h: 1.7, w: 1.35, jump: false },
-    photographer: { label: 'ФОТОГРАФ', pen: 7, slow: 2, h: 1.8, w: 0.7, jump: false },
-    dog:          { label: 'СОБАКА', pen: 6, slow: 2, h: 0.55, w: 0.95, jump: true },
-    runner:       { label: 'БЕГУН', pen: 4, slow: 1.5, h: 1.7, w: 0.6, jump: false }
+    puddle:       { label: 'ЛУЖА', pen: 5, cad: 10, h: 0.14, w: 1.3, jump: true },
+    fanbarrier:   { label: 'ФАН-БАРЬЕР', pen: 8, cad: 50, h: 0.62, w: 1.3, jump: true },
+    dog:          { label: 'СОБАКА', pen: 6, cad: 50, h: 0.55, w: 0.95, jump: true },
+    photographer: { label: 'ФОТОГРАФ', pen: 7, cad: 50, h: 1.8, w: 0.7, jump: false },
+    scooter:      { label: 'САМОКАТЧИК', pen: 9, cad: 50, h: 1.7, w: 0.8, jump: false },
+    volunteer:    { label: 'ВОЛОНТЁР', pen: 7, cad: 50, h: 1.75, w: 0.75, jump: false },
+    runner:       { label: 'БЕГУН', pen: 4, cad: 20, t: 1.5, h: 1.7, w: 0.6, jump: false }
   };
+  // полоса, которую непрыгаемое препятствие перекрывает в своём ряду
+  D.hardLane = (o) => (o.type === 'photographer' || o.type === 'scooter' ? o.target : o.lane);
 
   // Когда механики становятся доступны (км)
-  D.UNLOCK = { magnesium: 5, photographer: 5, dog: 5, breath: 4, pacer: 6.5, highfive: 10 };
+  D.UNLOCK = { volunteer: 2.5, magnesium: 5, photographer: 5, dog: 5, pacer: 6.5, scooter: 8, highfive: 10, double: 12, triple: 18 };
+
+  // Ништяков на трассе вдвое больше, чем нужно на идеальный забег 2:00:00 (120 с игры): гель 6, питьё 5, еда 4
+  const IDEAL_T = D.RECORD_SEC / TS;
+  D.ITEM_COUNT = {
+    gel: 2 * Math.ceil(IDEAL_T / D.SUPPLY.gel), drink: 2 * Math.ceil(IDEAL_T / D.SUPPLY.drink), food: 2 * Math.ceil(IDEAL_T / D.SUPPLY.food),
+    boost: 8, pacer: 5, highfive: 7
+  };
 
   /* ---------------- План трассы ---------------- */
   function weighted(r, list) {
@@ -697,92 +729,95 @@ details.part[open] summary::after { content: " ▴"; }
     const r = mulberry32(seed);
     const objs = [], rows = [];
     const km = D.zToKm, kz = D.kmToZ;
-    let z = kz(0.5);
-    let nextStation = kz(1.3);
-    const nextSpecial = { caffeine: kz(2.4), breath: kz(4.4), magnesium: kz(5.4), pacer: kz(6.8) };
-    const specialGap = { caffeine: [4.5, 6], breath: [3.5, 5], magnesium: [3.5, 5], pacer: [5, 7] };
+    const C = D.ITEM_COUNT;
 
-    const commonItem = (k) => weighted(r, [['gel', 1], ['banana', 1], ['water', 1.25],
-      ['breath', k >= D.UNLOCK.breath ? 0.35 : 0], ['magnesium', k >= D.UNLOCK.magnesium ? 0.3 : 0]]);
+    // 1) Где нужны ништяки: каждая категория равномерно по дистанции со случайным сдвигом
+    const want = [];
+    const spread = (type, n, from, to, jitter) => {
+      const step = (to - from) / n;
+      for (let i = 0; i < n; i++) want.push({ type, km: from + step * (i + 0.5) + (r() - 0.5) * step * jitter });
+    };
+    spread('gel', C.gel, 1, 40.8, 0.6); spread('drink', C.drink, 1, 40.8, 0.6); spread('food', C.food, 1, 40.8, 0.6);
+    spread('boost', C.boost, 2, 40.5, 0.5); spread('pacer', C.pacer, D.UNLOCK.pacer, 40, 0.5); spread('highfive', C.highfive, D.UNLOCK.highfive + 0.4, 41, 0.5);
+    want.sort((a, b) => a.km - b.km);
+    let lastItemLane = -1;
+    const variant = (type, k) => {
+      let vs = D.ITEMS[type].variants;
+      if (type === 'boost' && k < D.UNLOCK.magnesium) vs = vs.filter((v) => v.id !== 'magnesium');
+      return vs[Math.floor(r() * vs.length)].id;
+    };
 
-    while (z < L - kz(0.55)) {
-      const k = km(z), d = clamp(k / 40, 0, 1);
+    // 2) Ряды препятствий: реже и проще в начале, чаще и сложнее к финишу
+    let z = kz(0.6);
+    while (z < L - kz(0.5)) {
+      const k = km(z), d = clamp(k / 42, 0, 1);
       const row = { z, objs: [], block: [false, false, false] };
       const add = (type, lane, extra) => {
         const isItem = !!D.ITEMS[type];
         const o = Object.assign({ type, lane, x: LANES[lane], z, kind: isItem ? 'item' : 'obs', taken: false, hit: false }, extra || {});
         if (!isItem) {
           if (type === 'dog') { row.block[o.a] = row.block[o.a + 1] = true; }
-          else if (type === 'photographer') row.block[o.target] = true;
-          else row.block[lane] = true;
+          else row.block[D.hardLane(o)] = true;
         }
         row.objs.push(o); objs.push(o);
         return o;
       };
       const djCalm = k >= 23.2 && k <= 24.9;
-      let special = null;
-      for (const t in nextSpecial) if (z >= nextSpecial[t]) { special = t; break; }
+      const overdue = want.length && k - want[0].km > 0.8; // ништяк опаздывает — ряд без препятствий
+      const t = overdue ? 'empty' : djCalm ? weighted(r, [['empty', 2], ['puddle', 0.7]]) : weighted(r, [
+        ['empty', 0.2 + 1.6 * (1 - d)],
+        ['puddle', 2.2 - 0.6 * d],
+        ['fanbarrier', 1.4],
+        ['volunteer', k >= D.UNLOCK.volunteer ? 1.0 : 0],
+        ['dog', k >= D.UNLOCK.dog ? 0.6 + 0.8 * d : 0],
+        ['photo', k >= D.UNLOCK.photographer ? 0.6 + 0.8 * d : 0],
+        ['scooter', k >= D.UNLOCK.scooter ? 0.4 + 1.0 * d : 0],
+        ['double', k >= D.UNLOCK.double ? 0.3 + 1.6 * d : 0],
+        ['triple', k >= D.UNLOCK.triple ? 0.2 + 0.9 * d : 0]
+      ]);
+      if (t === 'puddle' || t === 'fanbarrier' || t === 'volunteer') add(t, Math.floor(r() * 3));
+      else if (t === 'dog') { const a = Math.floor(r() * 2); add('dog', a, { a, phase: r() * Math.PI * 2, omega: 1.9 + r() * 0.8, dir: 1 }); }
+      else if (t === 'photo') { const target = 1 + Math.floor(r() * 2); add('photographer', target, { target, x: 3.3 }); }
+      else if (t === 'scooter') { const target = Math.floor(r() * 3); add('scooter', target, { target, x: 5.2, dir: -1 }); }
+      else if (t === 'double') {
+        const free = Math.floor(r() * 3);
+        for (let i = 0; i < 3; i++) if (i !== free) add(weighted(r, [['volunteer', 1.2], ['fanbarrier', 1], ['puddle', 0.6]]), i);
+      } else if (t === 'triple') {
+        for (let i = 0; i < 3; i++) add(r() < 0.5 ? 'fanbarrier' : 'puddle', i);
+      }
 
-      if (z >= nextStation) {
-        // Пункт питания: осознанный выбор ресурса
-        const items = shuffle(r, ['gel', 'banana', 'water']);
-        items.forEach((t, i) => add(t, i));
-        row.station = true;
-        nextStation += kz(1.9 + r() * 0.7);
-      } else if (special) {
-        const g = specialGap[special];
-        nextSpecial[special] = z + kz(g[0] + r() * (g[1] - g[0]));
-        const lane = Math.floor(r() * 3);
-        add(special, lane);
-        if (!djCalm && r() < 0.5) {
-          const ol = (lane + 1 + Math.floor(r() * 2)) % 3;
-          add(r() < 0.5 ? 'puddle' : 'fence', ol);
-        }
-      } else if (djCalm) {
-        const t = weighted(r, [['item', 2], ['highfive', 1.4], ['puddle', 0.6]]);
-        if (t === 'item') add(commonItem(k), Math.floor(r() * 3));
-        else if (t === 'highfive') add('highfive', 2, { x: 2.65 });
-        else add('puddle', Math.floor(r() * 3));
-      } else {
-        const t = weighted(r, [
-          ['single', 3], ['item', 2.3 - d],
-          ['double', k > 2.5 ? 1 + 2 * d : 0],
-          ['triple', k > 7 ? 0.6 + d : 0],
-          ['dog', k >= D.UNLOCK.dog ? 0.9 + d : 0],
-          ['photo', k >= D.UNLOCK.photographer ? 0.8 + d : 0],
-          ['highfive', k >= D.UNLOCK.highfive ? 0.9 + (k > 36 ? 1.2 : 0) : 0]
-        ]);
-        if (t === 'single') {
-          const ob = weighted(r, [['puddle', 1], ['fence', 1], ['barrier', 1.1]]);
-          const lane = Math.floor(r() * 3);
-          add(ob, lane);
-          if (r() < 0.4) add(commonItem(k), (lane + 1 + Math.floor(r() * 2)) % 3);
-        } else if (t === 'item') {
-          const lane = Math.floor(r() * 3);
-          add(commonItem(k), lane);
-          if (r() < 0.3) add(commonItem(k), (lane + 1 + Math.floor(r() * 2)) % 3);
-        } else if (t === 'double') {
-          const free = Math.floor(r() * 3);
-          for (let i = 0; i < 3; i++) if (i !== free) add(r() < 0.75 ? 'barrier' : 'fence', i);
-          if (r() < 0.5) add(commonItem(k), free);
-        } else if (t === 'triple') {
-          for (let i = 0; i < 3; i++) add(r() < 0.5 ? 'fence' : 'puddle', i);
-        } else if (t === 'dog') {
-          const a = Math.floor(r() * 2);
-          add('dog', a, { a, phase: r() * Math.PI * 2, omega: 1.9 + r() * 0.8, dir: 1 });
-          if (r() < 0.4) add(commonItem(k), a === 0 ? 2 : 0);
-        } else if (t === 'photo') {
-          const target = 1 + Math.floor(r() * 2);
-          add('photographer', target, { target, x: 3.3 });
-          if (r() < 0.4) add(commonItem(k), 0);
-        } else if (t === 'highfive') {
-          add('highfive', 2, { x: 2.65 });
-          if (r() < 0.4) add(r() < 0.5 ? 'puddle' : 'barrier', 0);
-        }
+      // 3) Ништяк из очереди: один на ряд (не поперёк) и не в той же полосе, что предыдущий (не вдоль)
+      for (let j = 0; j < want.length && want[j].km <= k; j++) {
+        const w = want[j];
+        // «дай пять» — болельщик у правого края, а не предмет на полосе: правило линии на него не действует
+        const hf = w.type === 'highfive';
+        const lanes = (hf ? [2] : shuffle(r, [0, 1, 2])).filter((l) => !row.block[l] && (hf || l !== lastItemLane));
+        if (!lanes.length) continue;
+        const l = lanes[0];
+        if (hf) add('highfive', 2, { x: 2.65 });
+        else { add(w.type, l, D.ITEMS[w.type].variants ? { variant: variant(w.type, k) } : null); lastItemLane = l; }
+        want.splice(j, 1);
+        break;
       }
       rows.push(row);
-      z += lerp(28, 17, d) + r() * 7 + (djCalm ? 6 : 0);
+      z += lerp(36, 19, d) + r() * 8 + (djCalm ? 6 : 0);
     }
+    // не успевшие встать ништяки (редко, у финиша) — в ряды без ништяков с конца, по тем же правилам
+    for (const w of want) {
+      for (let i = rows.length - 2; i > 0; i--) {
+        const row = rows[i];
+        if (row.objs.some((o) => o.kind === 'item')) continue;
+        const itemIn = (rw) => rw.objs.find((o) => o.kind === 'item' && o.type !== 'highfive');
+        const near = [rows.slice(0, i).reverse().find(itemIn), rows.slice(i + 1).find(itemIn)].map((rw) => rw && itemIn(rw));
+        const l = (w.type === 'highfive' ? [2] : [0, 1, 2]).find((ln) => !row.block[ln] && (w.type === 'highfive' || !near.some((o) => o && o.lane === ln)));
+        if (l == null) continue;
+        const o = { type: w.type, lane: l, x: w.type === 'highfive' ? 2.65 : LANES[l], z: row.z, kind: 'item', taken: false, hit: false };
+        if (D.ITEMS[w.type].variants) o.variant = variant(w.type, km(row.z));
+        row.objs.push(o); objs.push(o);
+        break;
+      }
+    }
+    objs.sort((a, b) => a.z - b.z);
     return { objs, rows };
   };
 
@@ -797,6 +832,12 @@ details.part[open] summary::after { content: " ▴"; }
       const e = p * p * (3 - 2 * p);
       o.x = lerp(3.3, LANES[o.target], e);
       o.walking = p > 0 && p < 1;
+    } else if (o.type === 'scooter') {
+      // выезжает с набережной, тормозит в своей полосе, когда герой рядом; пропустив его, уезжает влево
+      const dz = o.z - pz;
+      const p = clamp((46 - dz) / 20, 0, 1), e = p * p * (3 - 2 * p);
+      o.x = dz > -1.5 ? lerp(5.2, LANES[o.target], e) : LANES[o.target] - Math.min(9, (-1.5 - dz) * 0.45);
+      o.moving = (p > 0 && p < 1) || dz < -1.5;
     }
   };
 
@@ -858,10 +899,15 @@ details.part[open] summary::after { content: " ▴"; }
     for (let z = 60; z < L; z += 70 + r() * 90) {
       sc.walkers.push({ z0: z, x: 4.1 + r() * 1.4, v: (r() < 0.5 ? -1 : 1) * (2.5 + r() * 2), kind: 'jogger', look: D.randomLook(r, false), phase: r() * 6 });
     }
-    // Лужники: точка Дасти, диджей, танцующие, гуляющие
+    // Лужники: точка Дасти, диджей, танцпол; ещё две точки поддержки поменьше — тоже рейв
     sc.dj = { z: djZ, x: 4.7 };
-    for (let i = 0; i < 12; i++) {
-      sc.fans.push({ z: djZ - 10 + r() * 24, x: 3.5 + r() * 2.2, look: D.randomLook(r, false), pose: 'dance', phase: r() * 6.28, sign: null });
+    sc.raves = D.RAVE_KM.map((k) => ({ z: kz(k), main: k === D.DJ_KM }));
+    for (const rv of sc.raves) {
+      const n = rv.main ? 26 : 12, spread = rv.main ? 30 : 16;
+      for (let i = 0; i < n; i++) {
+        sc.fans.push({ z: rv.z - spread * 0.4 + r() * spread, x: 3.4 + r() * 2.4, look: D.randomLook(r, false), pose: 'dance', phase: r() * 6.28, sign: null,
+          flag: !rv.main && i % 5 === 0 });
+      }
     }
     for (let i = 0; i < 8; i++) {
       const pair = i % 2;
@@ -940,10 +986,11 @@ details.part[open] summary::after { content: " ▴"; }
     return {
       seed, plan, scenery: D.buildScenery(seed), rivals: D.initRivals(participants, seed),
       t: 0, pz: 0, px: 0, lane: 1, vx: 0, y: 0, vy: 0, speed: 0,
-      cad: D.CAD.start, energy: 100, cal: 100, water: 100, hr: 92,
-      bonus: 0, penalty: 0, slowT: 0, caffT: 0, pacerT: 0, invulnT: 0, magT: 0, flashT: 0, hitT: 0, pickT: 0, pickColor: '#fff',
+      cad: D.CAD.start, cadEff: D.CAD.start, gel: D.SUPPLY.gel, drink: D.SUPPLY.drink, food: D.SUPPLY.food, hr: 92,
+      bonus: 0, penalty: 0, boostT: 0, boostKind: '', pacerT: 0, invulnT: 0, hitPen: 0, hitPenT: 0,
+      flashT: 0, hitT: 0, pickT: 0, pickColor: '#fff',
       objIdx: 0, overtakes: 0, position: participants.length + 1, total: participants.length + 1,
-      district: 0, unlocked: {}, warn: { energy: false, cal: false, water: false },
+      district: 0, unlocked: {}, warn: { gel: false, drink: false, food: false }, splits: [],
       finished: false, finishT: 0, result: 0, finalPos: 0, phase: 0,
       starsOn: false, stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0, stars: 0 },
       events: []
@@ -951,6 +998,7 @@ details.part[open] summary::after { content: " ▴"; }
   };
 
   D.raceTime = (g) => Math.max(0, g.t * TS + g.penalty - g.bonus);
+  D.fmtTime = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
   D.finalTime = (raw) => Math.max(D.RECORD_SEC, raw);
 
   D.act = function (g, a) {
@@ -962,38 +1010,30 @@ details.part[open] summary::after { content: " ▴"; }
     else if (a === 'cadDown') g.cad = Math.max(D.CAD.min, g.cad - D.CAD.step);
   };
 
+  // Фактический каденс: бустер — 210; иначе выбранный минус 10 за каждый пустой запас и минус сбитый столкновением темп
   D.speedFactors = function (g) {
-    const res = (v) => (v < 25 ? 0.7 + 0.3 * (v / 25) : 1);
-    const resF = res(g.energy) * res(g.cal) * res(g.water) * (g.hr > 186 ? 0.9 : 1);
-    // ниже комфортного каденса — неторопливая трусца: скорость падает быстрее, чем растёт выше него
-    const dc = g.cad - D.CAD.comfort;
-    const cadF = 1 + dc * (dc < 0 ? D.CAD.slopeLow : D.CAD.slope);
-    // «форма»: каждый ресурс выше 60% даёт +5% к скорости — грамотное питание ускоряет
-    const form = (g.energy > 60) + (g.cal > 60) + (g.water > 60);
-    const formF = 1 + 0.05 * form;
-    return { resF, cadF, formF, form, slowF: g.slowT > 0 ? 0.68 : 1, caffF: g.caffT > 0 ? 1.35 : 1 };
+    const empty = (g.gel <= 0) + (g.drink <= 0) + (g.food <= 0);
+    const cad = g.boostT > 0 ? D.CAD.boost : Math.max(D.CAD.floor, g.cad - D.CAD.empty * empty - (g.hitPenT > 0 ? g.hitPen : 0));
+    return { cad, empty, cadF: Math.pow(cad / D.CAD.ref, D.CAD.exp) };
   };
 
   function collect(g, o) {
-    const def = D.ITEMS[o.type];
+    const def = D.ITEMS[o.type], v = D.variantOf(o);
     o.taken = true;
     g.bonus += def.bonus; g.stats.bonusSec += def.bonus;
     g.stats.items[o.type] = (g.stats.items[o.type] || 0) + 1;
-    let interrupted = false;
-    switch (o.type) {
-      case 'gel': g.energy = Math.min(100, g.energy + 39); break;
-      case 'banana': g.cal = Math.min(100, g.cal + 44); break;
-      case 'water': g.water = Math.min(100, g.water + 42); g.hr = Math.max(80, g.hr - 8); break;
-      case 'breath': g.hr = Math.max(80, g.hr - 22); g.cad = Math.min(g.cad, D.CAD.comfort); break;
-      case 'pacer': g.pacerT = 8; break;
-      case 'caffeine': g.caffT = 6; g.slowT = 0; break;
-      case 'magnesium': g.energy = Math.min(100, g.energy + 15); g.slowT = 0; g.magT = 1.4; break;
-      case 'highfive': g.energy = Math.min(100, g.energy + 12); break;
-    }
-    g.pickT = 0.5; g.pickColor = def.color;
-    const title = o.type === 'magnesium' ? 'МАГНИЙ — ВОССТАНОВЛЕНИЕ' : def.label + ' −' + def.bonus + ' сек';
-    const sub = o.type === 'magnesium' ? '−4 сек, +15 энергии' : def.sub;
-    g.events.push({ kind: 'item', type: o.type, title, sub, good: true, interrupted });
+    let title = (v ? v.name.toUpperCase() : def.label) + ' −' + def.bonus + ' сек', sub = def.sub;
+    if (def.supply) {
+      const k = def.supply, wasEmpty = g[k] <= 0;
+      g[k] = D.SUPPLY[k];
+      if (o.type === 'gel') title = 'ГЕЛЬ ' + v.name + ' −' + def.bonus + ' сек';
+      sub = D.SUPPLY_NAME[k] + ' на ' + D.SUPPLY[k] + ' с' + (wasEmpty ? ' · каденс +' + D.CAD.empty : '');
+    } else if (o.type === 'boost') {
+      g.boostT = D.BOOST_T; g.boostKind = v.id; g.hitPen = 0; g.hitPenT = 0;
+      sub = D.BOOST_T + ' с на каденсе ' + D.CAD.boost;
+    } else if (o.type === 'pacer') g.pacerT = 8;
+    g.pickT = 0.5; g.pickColor = v ? v.color : def.color;
+    g.events.push({ kind: 'item', type: o.type, variant: o.variant, title, sub, good: true });
   }
 
   function hit(g, o) {
@@ -1007,11 +1047,11 @@ details.part[open] summary::after { content: " ▴"; }
     o.hit = true;
     g.penalty += def.pen; g.stats.penaltySec += def.pen;
     g.stats.hits[o.type] = (g.stats.hits[o.type] || 0) + 1;
-    const parts = [];
-    if (def.slow) { g.slowT = Math.max(g.slowT, def.slow); parts.push('замедление ' + def.slow + ' сек'); }
-    if (def.energy) { g.energy = Math.max(0, g.energy + def.energy); parts.push(def.energy + ' энергии'); }
-    if (o.type === 'barrier') parts.push('нужно перестроиться');
-    if (g.caffT > 0) { g.caffT = 0; parts.push('ускорение прервано'); }
+    // темп сбит на своё значение и вернётся к прежнему через 3 с (повторное столкновение — по большему)
+    const dur = def.t || D.HIT_T;
+    g.hitPen = Math.max(g.hitPenT > 0 ? g.hitPen : 0, def.cad); g.hitPenT = Math.max(g.hitPenT, dur);
+    const parts = ['каденс −' + def.cad + ' на ' + dur + ' с'];
+    if (g.boostT > 0) { g.boostT = 0; parts.push('бустер прерван'); }
     if (o.type === 'photographer') g.flashT = 0.4;
     g.invulnT = 1.0; g.hitT = 0.45;
     g.events.push({ kind: 'hit', type: o.type, title: def.label + ' +' + def.pen + ' сек', sub: parts.join(', '), good: false });
@@ -1023,35 +1063,28 @@ details.part[open] summary::after { content: " ▴"; }
     const km = D.zToKm(g.pz);
 
     // таймеры эффектов идут в реальном времени симуляции
-    g.slowT = Math.max(0, g.slowT - dt); g.caffT = Math.max(0, g.caffT - dt); g.pacerT = Math.max(0, g.pacerT - dt);
-    g.invulnT = Math.max(0, g.invulnT - dt); g.magT = Math.max(0, g.magT - dt); g.flashT = Math.max(0, g.flashT - dt);
+    g.pacerT = Math.max(0, g.pacerT - dt); g.invulnT = Math.max(0, g.invulnT - dt); g.flashT = Math.max(0, g.flashT - dt);
     g.hitT = Math.max(0, g.hitT - dt); g.pickT = Math.max(0, g.pickT - dt);
-    const hadCaff = g.caffEnding; g.caffEnding = g.caffT > 0;
-    if (hadCaff && g.caffT <= 0) g.events.push({ kind: 'caffEnd' });
+    if (g.boostT > 0) { g.boostT = Math.max(0, g.boostT - dt); if (g.boostT === 0) g.events.push({ kind: 'boostEnd' }); }
+    if (g.hitPenT > 0) { g.hitPenT = Math.max(0, g.hitPenT - dt); if (g.hitPenT === 0) g.hitPen = 0; }
 
-    // пульс: целевая зона зависит от каденса и состояния
-    const target = 96 + (g.cad - 150) * 1.9 + (g.caffT > 0 ? 8 : 0) + (g.water < 25 ? 10 : 0) + (g.slowT > 0 ? -4 : 0);
-    g.hr += clamp(target - g.hr, -4.5 * dt, 6 * dt);
-
-    // расход ресурсов (условная игровая модель)
-    const m = Math.pow(g.cad / D.CAD.comfort, 3);
-    const heat = 1 + 0.15 * clamp(km / 42, 0, 1);
-    g.energy = clamp(g.energy - (1.1 * m + (g.hr > 172 ? 0.5 : 0)) * dt, 0, 100);
-    g.cal = clamp(g.cal - 0.9 * m * dt, 0, 100);
-    g.water = clamp(g.water - 1.1 * m * heat * dt, 0, 100);
-
-    // предупреждения с гистерезисом: появление < 25, исчезновение > 40
-    for (const k of ['energy', 'cal', 'water']) {
-      if (!g.warn[k] && g[k] < 25) g.warn[k] = true;
-      else if (g.warn[k] && g[k] > 40) g.warn[k] = false;
+    // запасы тают по секундам игры; за 5 с до конца — предупреждение, на нуле — каденс −10
+    for (const k of ['gel', 'drink', 'food']) {
+      const was = g[k];
+      g[k] = Math.max(0, g[k] - dt);
+      if (was > D.SUPPLY_WARN && g[k] <= D.SUPPLY_WARN) g.events.push({ kind: 'warn', res: k });
+      if (was > 0 && g[k] <= 0) g.events.push({ kind: 'empty', res: k });
+      g.warn[k] = g[k] <= D.SUPPLY_WARN;
     }
 
     const f = D.speedFactors(g);
-    const sp = D.BASE_SPEED * f.cadF * f.resF * f.formF * f.slowF * f.caffF;
+    g.cadEff = f.cad;
+    // пульс следует за фактическим каденсом (индикатор нагрузки)
+    g.hr += clamp(95 + (f.cad - 150) * 1.6 - g.hr, -4.5 * dt, 6 * dt);
+    const sp = D.BASE_SPEED * f.cadF;
     g.speed += (sp - g.speed) * Math.min(1, dt * 3);
     g.pz += g.speed * dt;
-    g.formSum = (g.formSum || 0) + f.form * dt;
-    g.phase += dt * (g.cad / 60) * Math.PI; // один цикл = два шага
+    g.phase += dt * (f.cad / 60) * Math.PI; // один цикл = два шага
 
     // перестроение
     const tx = LANES[g.lane];
@@ -1071,7 +1104,7 @@ details.part[open] summary::after { content: " ▴"; }
     for (let i = g.objIdx; i < objs.length; i++) {
       const o = objs[i];
       if (o.z > g.pz + 280) break;
-      if (o.type === 'dog' || o.type === 'photographer') D.updateDynamic(o, g.t, g.pz);
+      if (o.type === 'dog' || o.type === 'photographer' || o.type === 'scooter') D.updateDynamic(o, g.t, g.pz);
       if (o.taken || o.hit) continue;
       const dz = o.z - g.pz;
       if (dz < -1.2 || dz > 1.2) continue;
@@ -1136,12 +1169,23 @@ details.part[open] summary::after { content: " ▴"; }
     const di = D.findDistrict(Math.min(km, 42.19));
     if (di !== g.district) { g.district = di; g.events.push({ kind: 'district', title: D.DISTRICTS[di].name, sub: '' }); }
     const unlockMsgs = [
-      [5, 'u5', 'НОВОЕ НА ТРАССЕ', 'магний, фотографы и собаки'],
+      [D.UNLOCK.volunteer, 'u2', 'НОВОЕ НА ТРАССЕ', 'волонтёры — их не перепрыгнуть'],
+      [5, 'u5', 'НОВОЕ НА ТРАССЕ', 'фотографы, собаки и магний'],
+      [D.UNLOCK.scooter, 'u8', 'ОСТОРОЖНО', 'самокатчики выезжают с набережной'],
       [10, 'u10', 'БОЛЕЛЬЩИКИ РЯДОМ', 'правая полоса — «дай пять»'],
-      [23, 'u23', 'ТОЧКА ДАСТИ', 'диджей на 24-м км'],
+      [D.RAVE_KM[0] - 0.5, 'r0', 'ДАСТИ НА ТРАССЕ', 'рейв поддержки — слышишь бит?'],
+      [D.TRACK_KM[0] - 0.4, 'u22', 'ЛУЖНИКИ', 'впереди беговое покрытие и точка Дасти'],
+      [D.DJ_KM - 0.6, 'u23', 'ТОЧКА ДАСТИ', 'за пультом DJ KIM'],
+      [D.RAVE_KM[2] - 0.5, 'r2', 'ДАСТИ НА ТРАССЕ', 'ещё один рейв поддержки'],
       [39.2, 'u39', 'КРЕМЛЬ ВПЕРЕДИ', 'финиш близко']
     ];
     for (const [k, id, title, sub] of unlockMsgs) if (km >= k && !g.unlocked[id]) { g.unlocked[id] = true; g.events.push({ kind: 'info', title, sub }); }
+    // отметки каждых 5 км со сплитом
+    const mark = Math.floor(km / 5) * 5;
+    if (mark >= 5 && mark < 42 && g.splits.length < mark / 5) {
+      while (g.splits.length < mark / 5) g.splits.push(D.raceTime(g));
+      g.events.push({ kind: 'km', km: mark, title: mark + ' КМ', sub: 'сплит ' + D.fmtTime(D.raceTime(g)) });
+    }
 
     // финиш
     if (g.pz >= L) {
@@ -1151,7 +1195,6 @@ details.part[open] summary::after { content: " ▴"; }
       g.result = D.finalTime(g.rawResult);
       g.recordCapped = g.rawResult < D.RECORD_SEC;
       g.finalPos = 1 + g.rivals.filter((rv) => !rv.star && rv.T * TS < g.result).length;
-      g.formAvg = g.formSum / Math.max(1, g.t);
       g.overtakes = g.total - g.finalPos;
       g.finished = true;
       g.events.push({ kind: 'finish' });
@@ -1170,14 +1213,14 @@ details.part[open] summary::after { content: " ▴"; }
 </script>
 <script>
 /* part2-logic-tech/audio.js */
-/* DUSTY Marathon Run — звук: синтез Web Audio, оригинальный ритм у точки Дасти */
+/* DUSTY Marathon Run — звук: синтез Web Audio, оригинальный сет DJ KIM у точек Дасти */
 (function (G) {
   'use strict';
   const D = G.DUSTY;
   const A = (D.Audio = {});
-  let ctx = null, master = null, sfx = null, music = null, noise = null;
+  let ctx = null, master = null, sfx = null, music = null, pump = null, noise = null;
   let enabled = false, paused = false, nextStep = 0, step = 0, musicLevel = 0;
-  const BPM = 124, STEP = 60 / BPM / 4;
+  const BPM = 128, STEP = 60 / BPM / 4;
 
   function ensure() {
     if (ctx) return true;
@@ -1187,6 +1230,8 @@ details.part[open] summary::after { content: " ▴"; }
     master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
     sfx = ctx.createGain(); sfx.gain.value = 0.6; sfx.connect(master);
     music = ctx.createGain(); music.gain.value = 0; music.connect(master);
+    // «насос»: бас и аккорды приседают под каждую бочку (sidechain)
+    pump = ctx.createGain(); pump.gain.value = 1; pump.connect(music);
     const len = ctx.sampleRate * 0.5;
     noise = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = noise.getChannelData(0);
@@ -1261,26 +1306,61 @@ details.part[open] summary::after { content: " ▴"; }
     }
   };
 
-  // Оригинальный синтезированный ритм; громкость зависит от близости к точке Дасти
-  const BASS = [45, 0, 45, 0, 48, 0, 45, 52, 45, 0, 45, 0, 43, 0, 50, 48];
+  // Оригинальный синтезированный сет DJ KIM: 128 BPM, 16-тактовая фраза — 12 тактов драйва, брейкдаун, подъём, дроп
+  const BASS = [36, 36, 48, 36, 0, 36, 46, 36, 36, 0, 48, 36, 43, 36, 46, 48];
+  const CHORDS = [[57, 60, 64], [55, 59, 62], [53, 57, 60], [55, 59, 64]];
   const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+  function kick(t0) {
+    const o = ctx.createOscillator(), gn = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(160, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.11);
+    gn.gain.setValueAtTime(1.1, t0); gn.gain.exponentialRampToValueAtTime(0.001, t0 + 0.34);
+    o.connect(gn); gn.connect(music); o.start(t0); o.stop(t0 + 0.36);
+    hiss(t0, 0.012, 0.35, 3500, music);
+    pump.gain.cancelScheduledValues(t0); pump.gain.setValueAtTime(0.22, t0); pump.gain.linearRampToValueAtTime(1, t0 + STEP * 3);
+  }
+  function clap(t0) { for (const d of [0, 0.011, 0.023]) hiss(t0 + d, d === 0.023 ? 0.16 : 0.02, 0.32, 1400, music, 'bandpass'); }
+  function acid(freq, t0, cut, len) {
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), gn = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(freq, t0);
+    f.type = 'lowpass'; f.Q.value = 14; f.frequency.setValueAtTime(cut, t0); f.frequency.exponentialRampToValueAtTime(160, t0 + len);
+    gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(0.2, t0 + 0.008); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    o.connect(f); f.connect(gn); gn.connect(pump); o.start(t0); o.stop(t0 + len + 0.02);
+  }
+  function stab(notes, t0, len, vol) {
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2800; f.connect(pump);
+    for (const n of notes) for (const det of [-9, 0, 9]) {
+      const o = ctx.createOscillator(), gn = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(midi(n), t0); o.detune.value = det;
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(vol, t0 + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+      o.connect(gn); gn.connect(f); o.start(t0); o.stop(t0 + len + 0.02);
+    }
+  }
+  function riser(t0, len) {
+    const s2 = ctx.createBufferSource(); s2.buffer = noise; s2.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3; f.frequency.setValueAtTime(400, t0); f.frequency.exponentialRampToValueAtTime(7000, t0 + len);
+    const gn = ctx.createGain(); gn.gain.setValueAtTime(0.02, t0); gn.gain.exponentialRampToValueAtTime(0.32, t0 + len); gn.gain.linearRampToValueAtTime(0, t0 + len + 0.02);
+    s2.connect(f); f.connect(gn); gn.connect(music); s2.start(t0); s2.stop(t0 + len + 0.05);
+  }
   A.updateMusic = function (level) {
     musicLevel = level;
     if (!ctx) return;
     const t = ctx.currentTime;
-    music.gain.setTargetAtTime(live() ? level * 0.55 : 0, t, 0.25);
+    music.gain.setTargetAtTime(live() ? level * 0.7 : 0, t, 0.25);
     if (!live() || level < 0.02) { nextStep = 0; return; }
     if (nextStep < t) { nextStep = t + 0.05; }
     while (nextStep < t + 0.2) {
-      const s = step % 16, bar = Math.floor(step / 16) % 4;
-      if (s % 4 === 0) tone(150, nextStep, 0.25, 'sine', 0.9, music, 45);
-      if (s === 4 || s === 12) hiss(nextStep, 0.14, 0.35, 1800, music);
-      if (s % 2 === 1) hiss(nextStep, 0.04, 0.18, 7000, music);
-      if (BASS[s]) tone(midi(BASS[s] + (bar === 3 ? 2 : 0)), nextStep, STEP * 1.6, 'sawtooth', 0.16, music);
-      if (s === 0 || s === 10) {
-        const root = bar === 2 ? 65 : bar === 3 ? 67 : 69;
-        [0, 3, 7].forEach((iv) => tone(midi(root + iv), nextStep, STEP * 2, 'square', 0.035, music));
+      const s = step % 16, bar = Math.floor(step / 16) % 16, chord = CHORDS[Math.floor(bar / 2) % 4];
+      const breakdown = bar >= 12 && bar < 15, build = bar === 15;
+      if (!breakdown && !build && s % 4 === 0) kick(nextStep);
+      if (build && s % 2 === 0) hiss(nextStep, 0.05, 0.12 + s * 0.02, 1800, music, 'bandpass'); // дробь перед дропом
+      if (!breakdown && !build) {
+        if (s % 4 === 2) hiss(nextStep, 0.13, 0.2, 6500, music); else hiss(nextStep, 0.025, 0.07, 9000, music);
+        if (s === 4 || s === 12) clap(nextStep);
+        if (BASS[s]) acid(midi(BASS[s] + (bar % 4 === 3 ? 3 : 0)), nextStep, 500 + 2600 * (0.5 + 0.5 * Math.sin(step / 40)), STEP * 1.5);
       }
+      if (breakdown && s === 0) stab(chord, nextStep, STEP * 15, 0.03);          // брейкдаун: тянущийся аккорд
+      else if (!breakdown && !build && (s === 0 || s === 6 || s === 11)) stab(chord, nextStep, STEP * 1.2, 0.045);
+      if (build && s === 0) riser(nextStep, STEP * 16);
       nextStep += STEP; step++;
     }
   };
@@ -1555,7 +1635,7 @@ details.part[open] summary::after { content: " ▴"; }
   }
 
   /* ---------- предметы и препятствия ---------- */
-  function itemSprite(c, type, t, seed) {
+  function itemSprite(c, type, t, seed, variant) {
     const def = D.ITEMS[type];
     const bob = reduced ? 0 : Math.sin(t * 3 + seed) * 0.07;
     // светящийся столб — читается издалека
@@ -1567,38 +1647,68 @@ details.part[open] summary::after { content: " ▴"; }
     // подложка-медальон
     c.fillStyle = 'rgba(255,255,255,0.92)'; ell(c, 0, 0, 0.36, 0.36); c.fill();
     c.strokeStyle = def.color; c.lineWidth = 0.07; c.stroke();
+    const txt = (s2, x, y, size, col) => { c.fillStyle = col; c.font = '800 ' + size + 'px sans-serif'; c.textAlign = 'center'; c.fillText(s2, x, y); };
     switch (type) {
-      case 'gel':
-        c.fillStyle = PINK; rr(c, -0.14, -0.22, 0.28, 0.4, 0.05); c.fill();
-        c.fillStyle = LIME; c.fillRect(-0.14, -0.06, 0.28, 0.08);
+      case 'gel': {
+        const lk = { sis: ['SiS', '#1f4fd1', '#fff'], gel4u: ['GEL4U', '#ff7a1a', INK], gu: ['GU', '#e8365a', '#fff'], maurten: ['MAURTEN', '#f1f1ec', '#15151a'] }[variant] || ['GEL', PINK, '#fff'];
+        c.fillStyle = lk[1]; rr(c, -0.15, -0.22, 0.3, 0.42, 0.05); c.fill();
+        c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.02; c.stroke();
         c.fillStyle = INK; c.beginPath(); c.moveTo(-0.06, -0.22); c.lineTo(0.06, -0.22); c.lineTo(0.03, -0.3); c.lineTo(-0.03, -0.3); c.fill();
+        txt(lk[0], 0, 0.03, lk[0].length > 4 ? 0.06 : 0.11, lk[2]);
         break;
-      case 'banana':
-        c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(0.02, -0.12, 0.25, 0.35, 2.75); c.arc(0.02, -0.26, 0.24, 2.6, 0.5, true); c.fill();
-        c.fillStyle = '#6b4a2b'; c.fillRect(0.2, -0.07, 0.05, 0.05);
+      }
+      case 'drink':
+        if (variant === 'cola') {
+          c.fillStyle = '#c8102e'; rr(c, -0.12, -0.22, 0.24, 0.42, 0.04); c.fill();
+          c.fillStyle = '#d9d9de'; c.fillRect(-0.11, -0.25, 0.22, 0.04);
+          txt('COLA', 0, 0.02, 0.075, '#fff');
+        } else if (variant === 'iso') {
+          c.fillStyle = '#ffb21a'; rr(c, -0.1, -0.2, 0.2, 0.42, 0.06); c.fill();
+          c.fillStyle = INK; c.fillRect(-0.1, -0.06, 0.2, 0.11); c.fillRect(-0.05, -0.29, 0.1, 0.09);
+          txt('ISO', 0, 0.025, 0.07, '#ffb21a');
+        } else {
+          c.fillStyle = '#7fd0ff'; rr(c, -0.1, -0.2, 0.2, 0.42, 0.06); c.fill();
+          c.fillStyle = '#ffffff'; c.fillRect(-0.1, -0.05, 0.2, 0.08);
+          c.fillStyle = '#1b6fd1'; c.fillRect(-0.05, -0.27, 0.1, 0.07);
+        }
         break;
-      case 'water':
-        c.fillStyle = '#3fb7ff'; rr(c, -0.1, -0.2, 0.2, 0.42, 0.06); c.fill();
-        c.fillStyle = '#d8f3ff'; c.fillRect(-0.1, -0.05, 0.2, 0.08);
-        c.fillStyle = '#1b6fd1'; c.fillRect(-0.05, -0.27, 0.1, 0.07);
+      case 'food':
+        if (variant === 'orange') {
+          c.fillStyle = '#ff8c1a'; ell(c, 0, 0, 0.2, 0.2); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.35)'; ell(c, -0.07, -0.07, 0.05, 0.04); c.fill();
+          c.fillStyle = '#3f8a3a'; ell(c, 0.06, -0.21, 0.07, 0.03); c.fill();
+        } else if (variant === 'burger') {
+          c.fillStyle = '#d9913a'; c.beginPath(); c.ellipse(0, -0.04, 0.24, 0.17, 0, Math.PI, 0); c.fill();
+          c.fillStyle = '#5fbf3a'; c.fillRect(-0.25, -0.04, 0.5, 0.05);
+          c.fillStyle = '#ffcf3a'; c.fillRect(-0.23, 0.01, 0.46, 0.03);
+          c.fillStyle = '#5a2e1a'; rr(c, -0.23, 0.04, 0.46, 0.07, 0.03); c.fill();
+          c.fillStyle = '#d9913a'; rr(c, -0.22, 0.11, 0.44, 0.08, 0.04); c.fill();
+          c.fillStyle = '#fff3d6'; for (let i = 0; i < 5; i++) { ell(c, -0.12 + i * 0.06, -0.12 - (i % 2) * 0.04, 0.012, 0.007); c.fill(); }
+        } else {
+          c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(0.02, -0.12, 0.25, 0.35, 2.75); c.arc(0.02, -0.26, 0.24, 2.6, 0.5, true); c.fill();
+          c.fillStyle = '#6b4a2b'; c.fillRect(0.2, -0.07, 0.05, 0.05);
+        }
         break;
-      case 'breath':
-        c.strokeStyle = '#21a7c6'; c.lineWidth = 0.05; c.lineCap = 'round';
-        for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(-0.2, -0.12 + i * 0.12); c.quadraticCurveTo(0.05, -0.2 + i * 0.12, 0.18, -0.1 + i * 0.12); c.stroke(); }
+      case 'boost':
+        if (variant === 'magnesium') {
+          c.fillStyle = '#39e27a'; rr(c, -0.22, -0.1, 0.44, 0.2, 0.1); c.fill();
+          c.fillStyle = '#fff'; c.fillRect(0, -0.1, 0.22, 0.2);
+          txt('Mg', -0.1, 0.05, 0.13, '#167a3c');
+        } else if (variant === 'puer') {
+          c.fillStyle = '#e9dcc6'; ell(c, 0, 0.14, 0.22, 0.05); c.fill();
+          c.fillStyle = '#a04a26'; c.beginPath(); c.moveTo(-0.17, -0.06); c.lineTo(0.17, -0.06); c.lineTo(0.11, 0.13); c.lineTo(-0.11, 0.13); c.closePath(); c.fill();
+          c.fillStyle = '#4a1c0c'; ell(c, 0, -0.06, 0.17, 0.035); c.fill();
+          c.strokeStyle = 'rgba(160,160,160,0.7)'; c.lineWidth = 0.025; c.lineCap = 'round';
+          for (const x of [-0.06, 0.05]) { c.beginPath(); c.moveTo(x, -0.1); c.quadraticCurveTo(x + 0.05, -0.17, x, -0.24); c.stroke(); }
+        } else {
+          c.fillStyle = '#8a4f22'; c.beginPath(); c.moveTo(-0.15, -0.12); c.lineTo(0.15, -0.12); c.lineTo(0.11, 0.18); c.lineTo(-0.11, 0.18); c.closePath(); c.fill();
+          c.fillStyle = '#fff'; c.fillRect(-0.16, -0.17, 0.32, 0.06);
+          c.fillStyle = LIME; c.beginPath(); c.moveTo(0.02, -0.08); c.lineTo(-0.06, 0.04); c.lineTo(0, 0.04); c.lineTo(-0.03, 0.14); c.lineTo(0.07, 0); c.lineTo(0.01, 0); c.closePath(); c.fill();
+        }
         break;
       case 'pacer':
         c.fillStyle = VIOLET; c.beginPath(); c.moveTo(0, -0.26); c.lineTo(0.2, -0.16); c.lineTo(0.17, 0.08); c.lineTo(0, 0.22); c.lineTo(-0.17, 0.08); c.lineTo(-0.2, -0.16); c.closePath(); c.fill();
-        c.fillStyle = '#fff'; c.font = '800 0.13px sans-serif'; c.textAlign = 'center'; c.fillText('PACE', 0, 0.03);
-        break;
-      case 'caffeine':
-        c.fillStyle = '#8a4f22'; c.beginPath(); c.moveTo(-0.15, -0.12); c.lineTo(0.15, -0.12); c.lineTo(0.11, 0.18); c.lineTo(-0.11, 0.18); c.closePath(); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(-0.16, -0.17, 0.32, 0.06);
-        c.fillStyle = LIME; c.beginPath(); c.moveTo(0.02, -0.08); c.lineTo(-0.06, 0.04); c.lineTo(0, 0.04); c.lineTo(-0.03, 0.14); c.lineTo(0.07, 0); c.lineTo(0.01, 0); c.closePath(); c.fill();
-        break;
-      case 'magnesium':
-        c.fillStyle = '#39e27a'; rr(c, -0.22, -0.1, 0.44, 0.2, 0.1); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(0, -0.1, 0.22, 0.2);
-        c.fillStyle = '#167a3c'; c.font = '800 0.13px sans-serif'; c.textAlign = 'center'; c.fillText('Mg', -0.1, 0.05);
+        txt('PACE', 0, 0.03, 0.13, '#fff');
         break;
     }
     c.translate(0, 0.85 - bob);
@@ -1613,20 +1723,31 @@ details.part[open] summary::after { content: " ▴"; }
         c.strokeStyle = 'rgba(255,255,255,' + (0.5 * (1 - rp)) + ')'; c.lineWidth = 0.025; ell(c, 0.2, -0.02, 0.1 + rp * 0.3, 0.03 + rp * 0.07); c.stroke();
         break;
       }
-      case 'fence': {
-        c.fillStyle = '#9aa3ad'; c.fillRect(-0.62, -0.62, 0.05, 0.62); c.fillRect(0.57, -0.62, 0.05, 0.62);
-        c.fillStyle = '#fff'; c.fillRect(-0.65, -0.6, 1.3, 0.24);
-        c.fillStyle = '#e8365a'; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(-0.6 + i * 0.27, -0.36); c.lineTo(-0.47 + i * 0.27, -0.6); c.lineTo(-0.36 + i * 0.27, -0.6); c.lineTo(-0.49 + i * 0.27, -0.36); c.fill(); }
-        c.fillStyle = '#6b7480'; c.fillRect(-0.7, -0.03, 0.3, 0.03); c.fillRect(0.4, -0.03, 0.3, 0.03);
+      case 'fanbarrier': {
+        c.fillStyle = '#aab2bb';
+        c.fillRect(-0.64, -0.66, 0.04, 0.66); c.fillRect(0.6, -0.66, 0.04, 0.66); c.fillRect(-0.64, -0.66, 1.28, 0.04); c.fillRect(-0.64, -0.12, 1.28, 0.03);
+        for (let i = 1; i < 9; i++) c.fillRect(-0.62 + i * 0.14, -0.62, 0.02, 0.5);
+        c.fillStyle = PINK; c.fillRect(-0.6, -0.57, 1.2, 0.3);
+        c.fillStyle = LIME; c.fillRect(-0.6, -0.31, 1.2, 0.04);
+        c.fillStyle = '#fff'; c.font = '800 0.17px sans-serif'; c.textAlign = 'center'; c.fillText('DUSTY', 0, -0.36);
+        c.fillStyle = '#6b7480'; c.fillRect(-0.72, -0.03, 0.22, 0.03); c.fillRect(0.5, -0.03, 0.22, 0.03);
         break;
       }
-      case 'barrier': {
-        c.fillStyle = '#ff7a1a'; rr(c, -0.66, -1.05, 1.32, 1.05, 0.08); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(-0.66, -0.78, 1.32, 0.16); c.fillRect(-0.66, -0.42, 1.32, 0.16);
-        c.fillStyle = '#2b2b33'; c.fillRect(-0.05, -1.7, 0.1, 0.66);
-        c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(0, -1.78); c.lineTo(0.32, -1.32); c.lineTo(-0.32, -1.32); c.closePath(); c.fill();
-        c.strokeStyle = '#1e0b2e'; c.lineWidth = 0.035; c.stroke();
-        c.fillStyle = '#1e0b2e'; c.fillRect(-0.02, -1.62, 0.04, 0.16); c.fillRect(-0.02, -1.42, 0.04, 0.04);
+      case 'scooter': {
+        // самокат в профиль, едет влево; ездок стоит на деке
+        c.fillStyle = '#1d1f26'; rr(c, -0.42, -0.2, 0.84, 0.06, 0.02); c.fill();
+        c.fillRect(-0.4, -1.2, 0.05, 1.02); c.fillRect(-0.55, -1.22, 0.3, 0.05);
+        for (const x of [-0.36, 0.36]) { c.fillStyle = '#1d1f26'; ell(c, x, -0.1, 0.1, 0.1); c.fill(); c.fillStyle = LIME; ell(c, x, -0.1, 0.04, 0.04); c.fill(); }
+        c.save(); c.translate(0.05, -0.18); c.scale(0.92, 0.92);
+        personFront(c, { skin: '#d9a07a', hair: '#1c1c1c', shirt: '#3a7bff', shorts: '#2f3a55', shoes: '#fff', cap: '#1e1e28' }, 'walk', 0, o.z);
+        c.restore();
+        break;
+      }
+      case 'volunteer': {
+        personFront(c, { skin: '#e3b18c', hair: '#5a3a22', shirt: '#ff7a1a', shorts: '#2f3a55', shoes: '#222', cap: '#ffffff' }, 'stand', t, o.z, { vest: '#ff7a1a' });
+        c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(-0.07, -1.12); c.lineTo(0.07, -1.12); c.lineTo(0.05, -0.98); c.lineTo(-0.05, -0.98); c.closePath(); c.fill();
+        c.fillStyle = '#7fd0ff'; c.fillRect(-0.06, -1.12, 0.12, 0.03);
+        c.fillStyle = INK; c.font = '800 0.07px sans-serif'; c.textAlign = 'center'; c.fillText('ВОЛОНТЁР', 0, -0.82);
         break;
       }
       case 'photographer': {
@@ -1684,9 +1805,9 @@ details.part[open] summary::after { content: " ▴"; }
   }
 
   function arch(c, text, kind, t) {
-    const colA = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : PINK;
+    const colA = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : kind === 'km' ? LIME : kind === 'luzh' ? '#ffffff' : PINK;
     c.fillStyle = colA; c.fillRect(-3.3, -5.6, 0.35, 5.6); c.fillRect(2.95, -5.6, 0.35, 5.6);
-    c.fillStyle = kind === 'finish' ? INK : kind === 'start' ? VIOLET : PINK;
+    c.fillStyle = kind === 'finish' ? INK : kind === 'start' || kind === 'km' ? VIOLET : kind === 'luzh' ? '#c8102e' : PINK;
     c.fillRect(-3.4, -5.9, 6.8, 1.25);
     if (kind === 'finish') {
       for (let i = 0; i < 17; i++) for (let j = 0; j < 2; j++) { c.fillStyle = (i + j) % 2 ? '#fff' : INK; c.fillRect(-3.4 + i * 0.4, -4.85 + j * 0.2, 0.4, 0.2); }
@@ -1699,7 +1820,37 @@ details.part[open] summary::after { content: " ▴"; }
     }
   }
 
+  // Светомузыка точки Дасти: лучи веером и стробы в такт 128 BPM
+  function raveLights(c, t, w, h, n) {
+    if (reduced) return;
+    const beat = t * 128 / 60, kick = Math.pow(1 - (beat % 1), 4), cols = ['255,46,147', '108,43,217', '200,255,26', '33,198,198', '255,122,26'];
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + Math.sin(t * (0.9 + (i % 3) * 0.25) + i * 1.3) * 0.9, x0 = -w / 2 + i * w / (n - 1);
+      const gr = c.createLinearGradient(x0, -h, x0 + Math.cos(a) * 14, -h + Math.sin(a) * 14);
+      gr.addColorStop(0, 'rgba(' + cols[(i + (Math.floor(beat) >> 2)) % 5] + ',' + (0.35 + 0.35 * kick) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = gr; c.beginPath(); c.moveTo(x0, -h);
+      c.lineTo(x0 + Math.cos(a - 0.09) * 14, -h + Math.sin(a - 0.09) * 14); c.lineTo(x0 + Math.cos(a + 0.09) * 14, -h + Math.sin(a + 0.09) * 14); c.closePath(); c.fill();
+    }
+    if (Math.floor(beat) % 4 === 0) { c.fillStyle = 'rgba(255,255,255,' + kick * 0.8 + ')'; for (const x of [-w / 2, w / 2]) { ell(c, x, -h, 0.4, 0.4); c.fill(); } }
+    c.restore();
+  }
+  function raveSmall(c, t) {
+    raveLights(c, t, 3, 4.3, 4);
+    c.fillStyle = '#2a2a33'; c.fillRect(-1.5, -4.4, 0.22, 4.4); c.fillRect(1.3, -4.4, 0.22, 4.4); c.fillRect(-1.6, -4.5, 3.3, 0.3);
+    c.fillStyle = INK; c.fillRect(-1.45, -4.15, 2.9, 0.6);
+    c.fillStyle = LIME; c.font = '800 0.34px "Unbounded", sans-serif'; c.textAlign = 'center'; c.fillText('DUSTY RAVE', 0.05, -3.72);
+    for (const x of [-2.2, 2.2]) { c.fillStyle = '#15151b'; c.fillRect(x - 0.45, -2.1, 0.9, 2.1); c.fillStyle = '#3a3a48'; ell(c, x, -1.45, 0.27, 0.27); c.fill(); ell(c, x, -0.6, 0.21, 0.21); c.fill(); }
+  }
+
   function djBooth(c, t, level) {
+    // LED-стена и светомузыка за шатром
+    const beat = t * 128 / 60, kick = Math.pow(1 - (beat % 1), 4), hue = (beat * 12) % 360;
+    c.fillStyle = '#05030a'; c.fillRect(-3.4, -6.8, 6.8, 3.6);
+    c.fillStyle = 'hsla(' + hue + ',90%,50%,' + (0.3 + 0.4 * kick) + ')'; c.fillRect(-3.4, -6.8, 6.8, 3.6);
+    for (let i = 0; i < 16; i++) { const v = 0.3 + 0.7 * Math.abs(Math.sin(t * (2 + i * 0.4) + i)); c.fillStyle = 'hsl(' + (hue + i * 14) % 360 + ',95%,60%)'; c.fillRect(-3.3 + i * 0.41, -3.3 - v * 1.4, 0.32, v * 1.4); }
+    c.fillStyle = '#fff'; c.font = '800 0.9px "Unbounded", sans-serif'; c.textAlign = 'center'; c.fillText('DJ KIM', 0, -5.3);
+    raveLights(c, t, 6.6, 6.9, 6);
     // шатёр Дасти
     c.fillStyle = PINK; c.beginPath(); c.moveTo(-2.4, -2.8); c.lineTo(0, -3.9); c.lineTo(2.4, -2.8); c.closePath(); c.fill();
     c.fillStyle = VIOLET; c.fillRect(-2.3, -2.85, 4.6, 0.25);
@@ -1986,6 +2137,14 @@ details.part[open] summary::after { content: " ▴"; }
     ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.beginPath();
     for (const lx of [-0.725, 0.725]) band(lx - 0.04, lx + 0.04, 0, zn, Math.min(zf, cam.z + 160));
     ctx.fill();
+    // Лужники: беговое покрытие с белыми линиями вместо асфальта
+    const ta = Math.max(zn, D.kmToZ(D.TRACK_KM[0])), tb = Math.min(zf, D.kmToZ(D.TRACK_KM[1]));
+    if (tb > ta) {
+      ctx.fillStyle = '#b4452f'; ctx.beginPath(); band(-2.45, 2.45, 0, ta, tb); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath();
+      for (const lx of [-2.28, -0.725, 0.725, 2.28]) band(lx - 0.03, lx + 0.03, 0, ta, Math.min(tb, cam.z + 160));
+      ctx.fill();
+    }
     // гранитный парапет
     ctx.fillStyle = '#8c7f78'; ctx.beginPath(); vband(6.2, 0, 1.0, zn, zf); ctx.fill();
     ctx.fillStyle = '#c0b4aa'; ctx.beginPath(); band(6.2, 6.9, 1.0, zn, zf); ctx.fill();
@@ -2072,7 +2231,7 @@ details.part[open] summary::after { content: " ▴"; }
     time += dt;
     const km = D.zToKm(g.pz);
     // камера: плавное следование, лёгкая динамика при ускорении
-    const boost = g.caffT > 0 ? 1 : 0;
+    const boost = g.boostT > 0 ? 1 : 0;
     const back = 6.9 + (reduced ? 0 : boost * 0.5 + clamp((g.speed - 15) / 10, 0, 0.6) * 0.5);
     cam.back += (back - cam.back) * Math.min(1, dt * 2.5);
     cam.z = g.pz - cam.back;
@@ -2127,9 +2286,13 @@ details.part[open] summary::after { content: " ▴"; }
       if (inR(z) && z - cam.z < 160) push(z, 'walker', w, z);
     }
     if (inR(sc.dj.z)) { push(sc.dj.z, 'dj', sc.dj); }
+    for (const rv of sc.raves) if (!rv.main && inR(rv.z)) push(rv.z, 'rave', rv);
     if (inR(sc.dj.z - 6)) push(sc.dj.z - 6, 'arch', { text: 'DUSTY', kind: 'dusty' });
     if (inR(L)) push(L, 'arch', { text: 'ФИНИШ', kind: 'finish' });
     if (inR(4)) push(4, 'arch', { text: 'СТАРТ', kind: 'start' });
+    const luzhZ = D.kmToZ(D.TRACK_KM[0]) - 1.5;
+    if (inR(luzhZ)) push(luzhZ, 'arch', { text: 'ЛУЖНИКИ', kind: 'luzh' });
+    for (const k of D.KM_MARKS) if (inR(D.kmToZ(k))) push(D.kmToZ(k), 'arch', { text: k + ' КМ', kind: 'km' });
     const objs = g.plan.objs;
     for (let i = Math.max(0, g.objIdx - 2); i < objs.length; i++) {
       const o = objs[i]; if (o.z > zMax) break;
@@ -2171,8 +2334,9 @@ details.part[open] summary::after { content: " ▴"; }
           ctx.restore(); break;
         }
         case 'dj': at(o.x); djBooth(ctx, time, musicLevel); ctx.restore(); break;
+        case 'rave': at(4.4); raveSmall(ctx, time); ctx.restore(); break;
         case 'arch': at(0); arch(ctx, o.text, o.kind, time); ctx.restore(); break;
-        case 'item': at(o.x); itemSprite(ctx, o.type, time, o.z); ctx.restore(); break;
+        case 'item': at(o.x); itemSprite(ctx, o.type, time, o.z, o.variant); ctx.restore(); break;
         case 'hf': {
           at(o.x); shadow(ctx, 0.3);
           personFront(ctx, { skin: '#f1c9a5', hair: '#5a3a22', shirt: PINK, shorts: '#1e1e28', shoes: '#fff', cap: LIME }, 'stand', time, o.z);
@@ -2218,8 +2382,9 @@ details.part[open] summary::after { content: " ▴"; }
     ctx.save(); ctx.translate(x, y0); ctx.scale(s, s);
     shadow(ctx, 0.38 / (1 + g.y * 0.6));
     ctx.restore();
-    // кофеин: цветной след
-    if (g.caffT > 0) {
+    // бустер: цветной след (кофеин — розовый, магний — зелёный, пуэр — янтарный)
+    if (g.boostT > 0) {
+      const bc = { caffeine: '255,46,147', magnesium: '57,226,122', puer: '255,155,46' }[g.boostKind] || '255,46,147';
       for (let i = 3; i >= 1; i--) {
         const dz2 = dz - i * 0.55; if (dz2 < 0.9) continue;
         const s2 = f / dz2;
@@ -2229,7 +2394,7 @@ details.part[open] summary::after { content: " ▴"; }
         ctx.restore();
       }
       const rg = ctx.createRadialGradient(x, PY(1, dz), 0, x, PY(1, dz), s * 1.3);
-      rg.addColorStop(0, 'rgba(255,46,147,0.32)'); rg.addColorStop(1, 'rgba(255,46,147,0)');
+      rg.addColorStop(0, 'rgba(' + bc + ',0.32)'); rg.addColorStop(1, 'rgba(' + bc + ',0)');
       ctx.fillStyle = rg; ctx.fillRect(x - s * 1.4, PY(2.4, dz), s * 2.8, s * 2.6);
     }
     ctx.save(); ctx.translate(x, PY(g.y, dz)); ctx.scale(s, s);
@@ -2251,9 +2416,9 @@ details.part[open] summary::after { content: " ▴"; }
       ctx.fillStyle = 'rgba(139,92,255,0.10)'; ctx.fill();
       ctx.restore();
     }
-    // магний: зелёные кольца восстановления
-    if (g.magT > 0) {
-      const p = 1 - g.magT / 1.4;
+    // магний: зелёные кольца
+    if (g.boostT > 0 && g.boostKind === 'magnesium') {
+      const p = (time * 0.8) % 1;
       ctx.save(); ctx.translate(x, PY(g.y, dz)); ctx.scale(s, s);
       for (let i = 0; i < 3; i++) {
         const q = (p + i / 3) % 1;
@@ -2295,10 +2460,10 @@ details.part[open] summary::after { content: " ▴"; }
   function drawEffects(g, dt) {
     // линии скорости по краям
     const f2 = D.speedFactors(g);
-    const fast = !reduced && (g.caffT > 0 || f2.cadF * f2.resF > 1.12);
+    const fast = !reduced && (g.boostT > 0 || f2.cadF > 1.15);
     if (fast && speedLines.length < 26 && Math.random() < 0.8) {
       const side = Math.random() < 0.5 ? -1 : 1;
-      speedLines.push({ x: W2 + side * W * (0.3 + Math.random() * 0.2), y: H * (0.35 + Math.random() * 0.55), v: 0, side, life: 0.35, c: g.caffT > 0 ? (Math.random() < 0.5 ? PINK : LIME) : '#ffffff' });
+      speedLines.push({ x: W2 + side * W * (0.3 + Math.random() * 0.2), y: H * (0.35 + Math.random() * 0.55), v: 0, side, life: 0.35, c: g.boostT > 0 ? (Math.random() < 0.5 ? PINK : LIME) : '#ffffff' });
     }
     ctx.lineCap = 'round';
     for (let i = speedLines.length - 1; i >= 0; i--) {
@@ -2322,9 +2487,8 @@ details.part[open] summary::after { content: " ▴"; }
     // мягкая вспышка фотографа
     if (g.flashT > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (g.flashT / 0.4) * (reduced ? 0.25 : 0.55) + ')'; ctx.fillRect(0, 0, W, H); }
     // зелёное восстановление / мягкий сигнал столкновения
-    if (g.magT > 0 || g.hitT > 0) {
-      const col = g.magT > 0 ? '57,226,122' : '255,122,26';
-      const a = g.magT > 0 ? g.magT / 1.4 * 0.35 : g.hitT / 0.45 * 0.3;
+    if (g.hitT > 0) {
+      const col = '255,122,26', a = g.hitT / 0.45 * 0.3;
       const vg = ctx.createRadialGradient(W2, H * 0.55, Math.min(W, H) * 0.3, W2, H * 0.55, Math.max(W, H) * 0.75);
       vg.addColorStop(0, 'rgba(' + col + ',0)'); vg.addColorStop(1, 'rgba(' + col + ',' + a + ')');
       ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
@@ -2459,6 +2623,17 @@ details.part[open] summary::after { content: " ▴"; }
     const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; cache.set('asphalt', t); return t;
   };
 
+  // Беговое покрытие (тартан) Лужников: терракота с зерном и сплошные белые линии на границах игровых полос
+  T.tartan = function () {
+    if (cache.has('tartan')) return cache.get('tartan');
+    const c = canvas(512, 256), x = c.getContext('2d'); const r = D.rng(17);
+    x.fillStyle = '#b4452f'; x.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 9000; i++) { const v = r(); x.fillStyle = v < 0.5 ? 'rgba(120,30,18,0.35)' : 'rgba(230,120,90,0.3)'; x.fillRect(r() * 512, r() * 256, 1.5, 1.5); }
+    x.fillStyle = 'rgba(255,255,255,0.92)';
+    for (const u of [0.035, 0.352, 0.648, 0.965]) x.fillRect(512 * u - 3, 0, 6, 256);
+    const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; cache.set('tartan', t); return t;
+  };
+
   T.tiles = function (base, line) {
     const k = 'tiles' + base;
     if (cache.has(k)) return cache.get(k);
@@ -2533,6 +2708,15 @@ details.part[open] summary::after { content: " ▴"; }
     const t = tex(c); cache.set(key, t); return t;
   };
 
+  // Луч света: яркий у источника (верх развёртки), к концу гаснет; цвет задаёт материал
+  T.beam = function () {
+    if (cache.has('beam')) return cache.get('beam');
+    const c = canvas(64, 256), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, 'rgba(255,255,255,0.85)'); g.addColorStop(0.35, 'rgba(255,255,255,0.32)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 256);
+    const t = tex(c); cache.set('beam', t); return t;
+  };
   T.radial = function (inner, outer) {
     const key = 'rad' + inner + outer;
     if (cache.has(key)) return cache.get(key);
@@ -2832,6 +3016,10 @@ details.part[open] summary::after { content: " ▴"; }
         break;
       }
       case 'camera': arm('L', 1.35, 0.3, 1.9); arm('R', 1.35, -0.3, 1.9); J.head.rotation.x = 0.05; break;
+      // самокатчик: руки на руле, ноги на деке одна за другой
+      case 'scooter': arm('L', 0.95, -0.15, 0.45); arm('R', 0.95, 0.15, 0.45); J.hipL.rotation.x = 0.14; J.hipR.rotation.x = -0.1; J.kneeL.rotation.x = -0.12; J.torso.rotation.x = -0.1; break;
+      // волонтёр протягивает стакан
+      case 'offer': arm('L', 0.05, -0.12, 0.25); arm('R', 1.35, 0.1, 0.25); J.torso.rotation.z = 0.03 * Math.sin(k); J.head.rotation.x = 0.08; break;
       case 'sign': arm('L', 0.2, -2.9, 0.15); arm('R', 0.2, 2.9, 0.15); break;
       case 'highfive': arm('L', 0.05, -0.12, 0.25); arm('R', 0.25, 1.55, 0.15); J.torso.rotation.z = 0.08; break;
       case 'dj': { arm('L', 1.0, 0.2, 1.4 + 0.2 * Math.sin(k)); arm('R', 1.0 + 0.6 * Math.max(0, Math.sin(k * 0.5)), -0.2, 1.2); J.head.rotation.x = 0.25 * Math.abs(Math.sin(k)); J.pelvis.position.y = 0.94 + Math.abs(Math.sin(k)) * 0.025; break; }
@@ -3076,6 +3264,15 @@ details.part[open] summary::after { content: " ▴"; }
     strip(-7.5, -2.75, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [3, len / 1.6]);
     strip(-2.45, 2.45, 0.0, lambert('#ffffff', { map: T.asphalt() }), [1, len / 8]);
     strip(2.75, 6.2, 0.06, lambert('#ffffff', { map: T.tiles('#b2a69c', 'rgba(70,60,55,0.35)') }), [2, len / 1.6]);
+    // Лужники: вместо асфальта беговое покрытие, на входе и выходе — белые поперечные линии
+    {
+      const ta = D.kmToZ(D.TRACK_KM[0]), tb = D.kmToZ(D.TRACK_KM[1]);
+      const tt = T.tartan().clone(); tt.needsUpdate = true; tt.repeat.set(1, (tb - ta) / 6);
+      const geo = new THREE.PlaneGeometry(4.9, tb - ta).rotateX(-PI / 2).translate(0, 0.004, -(ta + tb) / 2);
+      const m = new THREE.Mesh(geo, lambert('#ffffff', { map: tt })); m.receiveShadow = true; root.add(m);
+      const lineM = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+      for (const zz of [ta, tb]) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 0.35).rotateX(-PI / 2), lineM); ln.position.set(0, 0.008, Z(zz)); root.add(ln); }
+    }
     const curbMat = lambert('#dcd5c8');
     for (const [a, b] of [[-2.75, -2.45], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
     // гранитный парапет
@@ -3230,11 +3427,12 @@ details.part[open] summary::after { content: " ▴"; }
     /* ---- арки: старт, точка Дасти, финиш ---- */
     const arch = (z, text, kind) => {
       const grp = new THREE.Group(); grp.position.z = Z(z);
-      const pc = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : PINK;
+      const pc = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : kind === 'km' ? LIME : kind === 'luzh' ? '#ffffff' : PINK;
       const pm = std(pc);
       for (const s of [-1, 1]) { const p = boxAt(unitBox, pm, s * 3.25 - 0.18, s * 3.25 + 0.18, 0, 5.7, -0.18, 0.18); p.position.z = 0; p.castShadow = true; grp.add(p); }
-      const face = new THREE.MeshBasicMaterial({ map: T.text(text, kind === 'finish' ? { bg: '#1e0b2e', fg: '#ffffff', checker: true, w: 1024, h: 192 } : kind === 'start' ? { bg: VIOLET, fg: LIME, stripe: LIME, w: 1024, h: 192 } : { bg: PINK, fg: '#ffffff', stripe: LIME, w: 1024, h: 192 }) });
-      const side = std(kind === 'finish' ? INK : pc);
+      const face = new THREE.MeshBasicMaterial({ map: T.text(text, kind === 'finish' ? { bg: '#1e0b2e', fg: '#ffffff', checker: true, w: 1024, h: 192 } : kind === 'start' ? { bg: VIOLET, fg: LIME, stripe: LIME, w: 1024, h: 192 }
+        : kind === 'km' ? { bg: VIOLET, fg: '#ffffff', stripe: LIME, w: 1024, h: 192 } : kind === 'luzh' ? { bg: '#c8102e', fg: '#ffffff', stripe: '#ffffff', w: 1024, h: 192 } : { bg: PINK, fg: '#ffffff', stripe: LIME, w: 1024, h: 192 }) });
+      const side = std(kind === 'finish' ? INK : kind === 'km' ? VIOLET : kind === 'luzh' ? '#c8102e' : pc);
       const banner = new THREE.Mesh(new THREE.BoxGeometry(6.9, 1.3, 0.3), [side, side, side, side, face, face]);
       banner.position.y = 5.3; banner.castShadow = true; grp.add(banner);
       root.add(grp);
@@ -3242,6 +3440,8 @@ details.part[open] summary::after { content: " ▴"; }
     };
     arch(4, 'СТАРТ', 'start');
     arch(L, 'ФИНИШ', 'finish');
+    arch(D.kmToZ(D.TRACK_KM[0]) - 1.5, 'ЛУЖНИКИ', 'luzh');
+    for (const k of D.KM_MARKS) arch(D.kmToZ(k), k + ' КМ', 'km');
     const dustyArch = arch(sc.dj.z - 6, 'DUSTY · ПЫЛЬНЫЕ ГАНТЕЛИ', 'dusty');
     // гирлянда шаров на арке Дасти
     const balls = [];
@@ -3280,6 +3480,72 @@ details.part[open] summary::after { content: " ▴"; }
       }
       root.add(grp);
       state.speakers = spk;
+    }
+
+    /* ---- рейв: точки поддержки Дасти со светомузыкой; на главной — баржа-сцена DJ KIM ---- */
+    state.raves = [];
+    {
+      const RAVE_COL = ['#ff2e93', '#6c2bd9', '#c8ff1a', '#21c6c6', '#ff7a1a'];
+      const additive = (color, opacity) => new THREE.MeshBasicMaterial({ color, map: T.beam(), transparent: true, opacity: opacity == null ? 0.55 : opacity,
+        depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+      // конус луча: источник в начале координат, луч вдоль −y
+      const beamGeo = (len, r) => new THREE.CylinderGeometry(0.06, r, len, 14, 1, true).translate(0, -len / 2, 0);
+      const truss = std('#2a2a33', { metalness: 0.6, roughness: 0.4 });
+      const strobeMat = () => new THREE.SpriteMaterial({ map: T.radial('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+      for (const rv of sc.raves) {
+        const grp = new THREE.Group(); grp.position.z = Z(rv.z); root.add(grp);
+        const R = { z: rv.z, main: rv.main, grp, heads: [], lasers: [], strobes: [], sky: [], range: rv.main ? 430 : 260 };
+        const head = (parent, x, y, z, len, r, i) => {
+          const pivot = new THREE.Group(); pivot.position.set(x, y, z); parent.add(pivot);
+          const can = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), truss); pivot.add(can);
+          const b = new THREE.Mesh(beamGeo(len, r), additive(RAVE_COL[i % RAVE_COL.length])); pivot.add(b);
+          R.heads.push({ pivot, beam: b, i });
+        };
+        if (rv.main) {
+          // баржа у набережной: корпус, подиум, LED-стена, ферма
+          const barge = new THREE.Group(); barge.position.set(13.5, 0, -6); grp.add(barge);
+          barge.add(boxAt(unitBox, std('#1c2433'), -5, 5, -2.6, -0.9, -9, 9));
+          barge.add(boxAt(unitBox, std('#15151b'), -4.2, 4.2, -0.9, 0.4, -7, 7));
+          const ledCanvas = document.createElement('canvas'); ledCanvas.width = 512; ledCanvas.height = 256;
+          const ledTex = new THREE.CanvasTexture(ledCanvas);
+          const led = new THREE.Mesh(new THREE.PlaneGeometry(9, 4.6), new THREE.MeshBasicMaterial({ map: ledTex, fog: false }));
+          led.position.set(1.5, 2.8, 0); led.rotation.y = -PI / 2.6; barge.add(led);
+          R.led = { canvas: ledCanvas, tex: ledTex, mesh: led, t: 0 };
+          const frame = new THREE.Group(); frame.position.copy(led.position); frame.rotation.copy(led.rotation); barge.add(frame);
+          for (const sx of [-4.9, 4.9]) frame.add(boxAt(unitBox, truss, sx - 0.15, sx + 0.15, -2.5, 3.6, -0.15, 0.15));
+          frame.add(boxAt(unitBox, truss, -5.1, 5.1, 3.5, 3.85, -0.2, 0.2));
+          for (let i = 0; i < 6; i++) head(frame, -4.2 + i * 1.68, 3.4, 0.5, 34, 2.4, i);
+          // лазеры над трассой
+          for (let i = 0; i < 7; i++) {
+            const pivot = new THREE.Group(); pivot.position.set(-4, 3.2, -2 + i * 0.6); barge.add(pivot);
+            const ln = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 34).translate(0, 0, -17), new THREE.MeshBasicMaterial({ color: i % 2 ? '#39ff6a' : '#ff2e93', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+            pivot.add(ln); R.lasers.push({ pivot, i, mat: ln.material });
+          }
+          // прожекторы в небо — видны издалека
+          for (const sx of [-4, 4]) {
+            const pivot = new THREE.Group(); pivot.position.set(sx, 0.5, sx * 1.5); barge.add(pivot);
+            const b = new THREE.Mesh(beamGeo(120, 3.5), additive('#ffffff', 0.22)); b.rotation.x = PI; pivot.add(b);
+            R.sky.push({ pivot, sx });
+          }
+          for (let i = 0; i < 4; i++) { const sp = new THREE.Sprite(strobeMat()); sp.scale.set(1.6, 1.6, 1); sp.position.set(-0.5, 6.2, -4 + i * 2.6); barge.add(sp); R.strobes.push(sp); }
+          // колонки на набережной
+          for (const zz of [-9, 9]) {
+            const stack = boxAt(unitBox, std('#15151b'), 3.6, 4.6, 0, 2.6, zz - 0.5, zz + 0.5); stack.position.z = Z(zz); grp.add(stack);
+          }
+        } else {
+          // точка поддержки: арка-ферма над набережной, колонки, лучи
+          const arch2 = new THREE.Group(); arch2.position.set(4.4, 0, 0); grp.add(arch2);
+          for (const sx of [-1.4, 1.6]) arch2.add(boxAt(unitBox, truss, sx - 0.12, sx + 0.12, 0, 4.2, -0.12, 0.12));
+          arch2.add(boxAt(unitBox, truss, -1.55, 1.75, 4.1, 4.4, -0.15, 0.15));
+          const ban = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.7, 0.08), [std(PINK), std(PINK), std(PINK), std(PINK),
+            new THREE.MeshBasicMaterial({ map: T.text('DUSTY RAVE', { bg: INK, fg: LIME, stripe: PINK, w: 512, h: 128 }) }), new THREE.MeshBasicMaterial({ map: T.text('DUSTY RAVE', { bg: INK, fg: LIME, stripe: PINK, w: 512, h: 128 }) })]);
+          ban.position.set(0.1, 3.7, 0.2); arch2.add(ban);
+          for (let i = 0; i < 4; i++) head(arch2, -1.2 + i * 0.85, 4.25, 0.3, 18, 1.4, i + 1);
+          for (const zz of [-3.5, 3.5]) { const st2 = boxAt(unitBox, std('#15151b'), 4.6, 5.6, 0, 2.1, -0.45, 0.45); st2.position.z = zz; grp.add(st2); }
+          for (let i = 0; i < 2; i++) { const sp = new THREE.Sprite(strobeMat()); sp.scale.set(1.1, 1.1, 1); sp.position.set(3.4 + i * 2.2, 4.3, 0.3); grp.add(sp); R.strobes.push(sp); }
+        }
+        state.raves.push(R);
+      }
     }
 
     /* ---- теплоходы ---- */
@@ -3374,7 +3640,50 @@ details.part[open] summary::after { content: " ▴"; }
     place(bd.mgu, D.clamp(1 - Math.abs(km - 25) / 5, 0, 1), 170, 90);
     place(bd.kremlin, D.clamp((km - 35) / 3, 0, 1), -40, 70 * (1 + D.clamp((km - 35) / 7, 0, 1) * 1.2));
     if (st.balls) st.balls.forEach((b, i) => { b.position.y = 6.15 + Math.abs(Math.sin(t * 3 + i)) * 0.1; });
+    // рейв: лучи, лазеры и стробы в такт 128 BPM
+    const beat = t * 128 / 60, bi2 = Math.floor(beat), kick = Math.pow(1 - (beat % 1), 4);
+    const RAVE_COL = ['#ff2e93', '#6c2bd9', '#c8ff1a', '#21c6c6', '#ff7a1a'];
+    for (const R of st.raves) {
+      const near = Math.abs(R.z - g.pz) < R.range;
+      R.grp.visible = near;
+      if (!near) continue;
+      for (const h of R.heads) {
+        const a = t * (0.9 + (h.i % 3) * 0.25) + h.i * 1.3;
+        h.pivot.rotation.set(0.5 + 0.45 * Math.sin(a), 0, (h.i % 2 ? 1 : -1) * (0.7 + 0.5 * Math.cos(a * 0.7)));
+        h.beam.material.color.set(RAVE_COL[(h.i + (bi2 >> 2)) % RAVE_COL.length]);
+        h.beam.material.opacity = 0.32 + 0.4 * kick;
+      }
+      for (const l of R.lasers) {
+        l.pivot.rotation.set(0.12 + 0.1 * Math.sin(t * 1.7 + l.i), -0.35 - 0.5 * Math.sin(t * 0.9 + l.i * 0.45), 0);
+        l.mat.opacity = (bi2 + l.i) % 4 === 0 ? 0.25 : 0.85;
+      }
+      for (const s of R.sky) s.pivot.rotation.set(0.35 * Math.sin(t * 0.4 + s.sx), 0, 0.3 * Math.cos(t * 0.33 + s.sx));
+      R.strobes.forEach((sp, i) => { sp.material.opacity = (bi2 % 8 === 7 || (bi2 + i) % 4 === 0) ? kick : 0; });
+      if (R.led && (R.led.t += 1) % 2 === 0) drawLed(R.led, t, beat, kick);
+    }
   };
+
+  // LED-стена сцены: эквалайзер, вспышки на сильную долю и «DJ KIM»
+  function drawLed(led, t, beat, kick) {
+    const c = led.canvas, x = c.getContext('2d'), w = c.width, h = c.height;
+    const hue = (beat * 12) % 360;
+    x.fillStyle = '#05030a'; x.fillRect(0, 0, w, h);
+    const bg = x.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, 'hsla(' + hue + ',90%,45%,' + (0.25 + 0.35 * kick) + ')'); bg.addColorStop(1, 'hsla(' + (hue + 120) % 360 + ',90%,45%,' + (0.2 + 0.3 * kick) + ')');
+    x.fillStyle = bg; x.fillRect(0, 0, w, h);
+    const n = 24;
+    for (let i = 0; i < n; i++) {
+      const v = 0.25 + 0.75 * Math.abs(Math.sin(t * (2.1 + i * 0.37) + i * 1.7)) * (0.6 + 0.4 * kick);
+      x.fillStyle = 'hsl(' + (hue + i * 9) % 360 + ',95%,60%)';
+      x.fillRect(i * w / n + 3, h - v * h * 0.55, w / n - 6, v * h * 0.55);
+    }
+    x.font = '800 92px "Unbounded", "Arial Black", Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.shadowColor = '#ff2e93'; x.shadowBlur = 18 + 30 * kick;
+    x.fillStyle = '#ffffff'; x.fillText('DJ KIM', w / 2, h * 0.38);
+    x.shadowBlur = 0;
+    x.font = '700 30px "Golos Text", sans-serif'; x.fillStyle = '#c8ff1a'; x.fillText('DUSTY RAVE · 128 BPM', w / 2, h * 0.68);
+    led.tex.needsUpdate = true;
+  }
 
   W3.dispose = function (st, scene) {
     const kill = (o) => {
@@ -3462,32 +3771,70 @@ details.part[open] summary::after { content: " ▴"; }
 
   /* ---------- пулы предметов и препятствий ---------- */
   function std(color, extra) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6 }, extra || {})); }
+  // Модели ништяков по видам: гели четырёх марок, три напитка, три вида еды, три бустера
+  const label = (text, bg, fg, w, h) => new THREE.MeshStandardMaterial({ map: D.Tex.text(text, { bg, fg, w: w || 128, h: h || 192 }), roughness: 0.4 });
   const MODEL = {
-    gel() {
+    gel(v) {
       const g = new THREE.Group();
-      const face = new THREE.MeshStandardMaterial({ map: D.Tex.text('GEL', { bg: PINK, fg: '#ffffff', stripe: LIME, w: 128, h: 192 }), roughness: 0.4 });
-      const side = std(PINK, { roughness: 0.4 });
+      const look = { sis: ['SiS', '#1f4fd1', '#ffffff'], gel4u: ['GEL4U', '#ff7a1a', '#1e0b2e'], gu: ['GU', '#e8365a', '#ffffff'], maurten: ['MAURTEN', '#f1f1ec', '#15151a'] }[v] || ['GEL', PINK, '#fff'];
+      const face = label(look[0], look[1], look[2]), side = std(look[1], { roughness: 0.4 });
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.42, 0.07), [side, side, side, side, face, face]); g.add(body);
-      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.08, 0.1, 8), std(INK)); tip.position.y = 0.26; g.add(tip);
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.08, 0.1, 8), std(v === 'maurten' ? '#15151a' : INK)); tip.position.y = 0.26; g.add(tip);
       return g;
     },
-    banana() {
+    drink(v) {
       const g = new THREE.Group();
-      const b = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.06, 10, 20, 2.3), std('#ffd23f', { roughness: 0.5 }));
-      b.rotation.z = 0.4; b.position.y = -0.12; g.add(b);
-      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.08, 6), std('#6b4a2b')); st.position.set(0.21, 0.1, 0); st.rotation.z = 0.6; g.add(st);
+      if (v === 'cola') {
+        const face = label('COLA', '#c8102e', '#ffffff', 256, 128), metal = std('#d9d9de', { metalness: 0.7, roughness: 0.3 });
+        g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.34, 18), [face, metal, metal]));
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.03, 18), metal); top.position.y = 0.185; g.add(top);
+      } else if (v === 'iso') {
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.36, 16), std('#ffb21a', { roughness: 0.25, transparent: true, opacity: 0.92 })); g.add(b);
+        const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.103, 0.103, 0.13, 16), [label('ISO', '#1e0b2e', '#ffb21a', 256, 128), std('#1e0b2e'), std('#1e0b2e')]); g.add(lab);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.1, 12), std('#1e0b2e')); cap.position.y = 0.23; g.add(cap);
+      } else {
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.4, 16), std('#9fdcff', { roughness: 0.1, transparent: true, opacity: 0.75 })); g.add(b);
+        const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.102, 0.102, 0.12, 16), std('#ffffff')); lab.position.y = -0.02; g.add(lab);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 12), std('#1b6fd1')); cap.position.y = 0.24; g.add(cap);
+      }
       return g;
     },
-    water() {
+    food(v) {
       const g = new THREE.Group();
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.4, 16), std('#3fb7ff', { roughness: 0.15, transparent: true, opacity: 0.9 })); g.add(b);
-      const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.102, 0.102, 0.12, 16), std('#ffffff')); lab.position.y = -0.02; g.add(lab);
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 12), std('#1b6fd1')); cap.position.y = 0.24; g.add(cap);
+      if (v === 'orange') {
+        const o = new THREE.Mesh(new THREE.IcosahedronGeometry(0.17, 2), std('#ff8c1a', { roughness: 0.75 })); g.add(o);
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6).scale(1, 0.3, 0.55), std('#3f8a3a')); leaf.position.set(0.04, 0.17, 0); leaf.rotation.z = -0.5; g.add(leaf);
+      } else if (v === 'burger') {
+        const bun = std('#d9913a', { roughness: 0.6 });
+        const top = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 10, 0, PI * 2, 0, PI / 2).scale(1, 0.62, 1), bun); top.position.y = 0.06; g.add(top);
+        const layer = (r, h, y, col) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 18), std(col)); m.position.y = y; g.add(m); };
+        layer(0.21, 0.035, 0.045, '#5fbf3a'); layer(0.2, 0.05, 0.005, '#5a2e1a'); layer(0.215, 0.015, 0.04, '#ffcf3a'); layer(0.19, 0.06, -0.06, '#d9913a');
+        const seeds = new THREE.InstancedMesh(new THREE.SphereGeometry(0.012, 4, 3).scale(1, 0.5, 1.6), std('#fff3d6'), 9);
+        const mt = new THREE.Matrix4();
+        for (let i = 0; i < 9; i++) { const a = i * 2.4, rr = 0.06 + (i % 3) * 0.035; mt.makeTranslation(Math.cos(a) * rr, 0.06 + Math.sqrt(Math.max(0, 0.0256 - rr * rr)) * 0.62 + 0.04, Math.sin(a) * rr); seeds.setMatrixAt(i, mt); }
+        g.add(seeds);
+      } else {
+        const b = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.06, 10, 20, 2.3), std('#ffd23f', { roughness: 0.5 }));
+        b.rotation.z = 0.4; b.position.y = -0.12; g.add(b);
+        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.08, 6), std('#6b4a2b')); st.position.set(0.21, 0.1, 0); st.rotation.z = 0.6; g.add(st);
+      }
       return g;
     },
-    breath() {
+    boost(v) {
       const g = new THREE.Group();
-      for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.2 - i * 0.04, 0.025, 8, 24), std('#7fe9ff', { emissive: '#2aa7c6', emissiveIntensity: 0.4 })); r.position.y = (i - 1) * 0.12; r.rotation.x = PI / 2; g.add(r); }
+      if (v === 'magnesium') {
+        const a = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.14, 6, 12).rotateZ(PI / 2), std('#39e27a', { roughness: 0.3 })); a.position.x = -0.07; g.add(a);
+        const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.14, 6, 12).rotateZ(PI / 2), std('#ffffff', { roughness: 0.3 })); b.position.x = 0.09; g.add(b);
+      } else if (v === 'puer') {
+        // пиала пуэра на блюдце
+        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.1, 0.16, 18, 1, true), std('#a04a26', { side: THREE.DoubleSide, roughness: 0.5 })); g.add(cup);
+        const tea = new THREE.Mesh(new THREE.CircleGeometry(0.14, 18).rotateX(-PI / 2), std('#4a1c0c', { roughness: 0.15 })); tea.position.y = 0.05; g.add(tea);
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.17, 0.025, 20), std('#e9dcc6')); plate.position.y = -0.09; g.add(plate);
+      } else {
+        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.11, 0.34, 16), std('#8a4f22')); g.add(cup);
+        const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 16), std('#ffffff')); lid.position.y = 0.19; g.add(lid);
+        const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.13, 0.12, 16), std(LIME, { emissive: '#4a6a00', emissiveIntensity: 0.3 })); g.add(sleeve);
+      }
       return g;
     },
     pacer() {
@@ -3496,22 +3843,9 @@ details.part[open] summary::after { content: " ▴"; }
       const side = std(VIOLET);
       const s = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.07, 6).rotateX(PI / 2), [side, face, face]); g.add(s);
       return g;
-    },
-    caffeine() {
-      const g = new THREE.Group();
-      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.11, 0.34, 16), std('#8a4f22')); g.add(cup);
-      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 16), std('#ffffff')); lid.position.y = 0.19; g.add(lid);
-      const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.13, 0.12, 16), std(LIME, { emissive: '#4a6a00', emissiveIntensity: 0.3 })); g.add(sleeve);
-      return g;
-    },
-    magnesium() {
-      const g = new THREE.Group();
-      const a = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.14, 6, 12, 0).rotateZ(PI / 2), std('#39e27a', { roughness: 0.3 })); a.position.x = -0.07; g.add(a);
-      const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.14, 6, 12).rotateZ(PI / 2), std('#ffffff', { roughness: 0.3 })); b.position.x = 0.09; g.add(b);
-      return g;
     }
   };
-  function makeItem(type) {
+  function makeItem(type, variant) {
     const grp = new THREE.Group();
     const col = D.ITEMS[type].color;
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 3.4, 12, 1, true).translate(0, 1.7, 0),
@@ -3520,7 +3854,7 @@ details.part[open] summary::after { content: " ▴"; }
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.5, 24).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.6, depthWrite: false }));
     ring.position.y = 0.08; grp.add(ring);
     if (MODEL[type]) {
-      const m = MODEL[type](); m.position.y = 0.9; m.traverse((c) => { if (c.isMesh) c.castShadow = true; });
+      const m = MODEL[type](variant); m.position.y = 0.9; m.traverse((c) => { if (c.isMesh) c.castShadow = true; });
       grp.add(m); grp.userData.model = m;
     }
     if (type === 'highfive') {
@@ -3539,24 +3873,26 @@ details.part[open] summary::after { content: " ▴"; }
       p.scale.set(0.7, 1, 0.24); p.position.y = 0.015; p.receiveShadow = true; grp.add(p);
       const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.4, depthWrite: false }));
       r.position.y = 0.02; grp.add(r); grp.userData.ripple = r;
-    } else if (type === 'fence') {
-      const metal = std('#9aa3ad', { metalness: 0.6, roughness: 0.35 });
-      for (const s of [-1, 1]) {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.62, 8).translate(0, 0.31, 0), metal); post.position.x = s * 0.62; grp.add(post);
-        const foot = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.5).translate(0, 0.02, 0), metal); foot.position.x = s * 0.62; grp.add(foot);
-      }
-      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.26, 8).rotateZ(PI / 2), metal); rail.position.y = 0.62; grp.add(rail);
-      const face = new THREE.MeshStandardMaterial({ map: D.Tex.stripes('#ffffff', '#e8365a', 6, true) });
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.28, 0.03), [metal, metal, metal, metal, face, face]); panel.position.y = 0.42; grp.add(panel);
-    } else if (type === 'barrier') {
-      const face = new THREE.MeshStandardMaterial({ map: D.Tex.stripes('#ff7a1a', '#ffffff', 4, false), roughness: 0.5 });
-      const side = std('#ff7a1a', { roughness: 0.5 });
-      const b = new THREE.Mesh(new THREE.BoxGeometry(1.32, 1.05, 0.5).translate(0, 0.525, 0), [side, side, side, side, face, face]); grp.add(b);
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.75).translate(0, 1.42, 0), std('#2b2b33')); grp.add(pole);
-      const tri = new THREE.Shape(); tri.moveTo(-0.34, 0); tri.lineTo(0.34, 0); tri.lineTo(0, 0.56); tri.closePath();
-      const sign = new THREE.Mesh(new THREE.ExtrudeGeometry(tri, { depth: 0.03, bevelEnabled: false }), std('#ffd23f')); sign.position.set(0, 1.55, 0.04); grp.add(sign);
-      const ex = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.02), std(INK)); ex.position.set(0, 1.78, 0.08); grp.add(ex);
-      const dot = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.02), std(INK)); dot.position.set(0, 1.63, 0.08); grp.add(dot);
+    } else if (type === 'fanbarrier') {
+      // металлический фан-барьер с баннером клуба
+      const metal = std('#aab2bb', { metalness: 0.6, roughness: 0.35 });
+      const tube = (len, x, y, rotZ) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, len, 8), metal); m.position.set(x, y, 0); m.rotation.z = rotZ || 0; grp.add(m); };
+      for (const sx of [-0.63, 0.63]) { tube(0.66, sx, 0.33); const foot = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.55).translate(0, 0.015, 0), metal); foot.position.x = sx; grp.add(foot); }
+      tube(1.26, 0, 0.64, PI / 2); tube(1.26, 0, 0.1, PI / 2);
+      for (let i = 1; i < 9; i++) tube(0.5, -0.63 + i * 0.14, 0.37);
+      const face = new THREE.MeshStandardMaterial({ map: D.Tex.text('DUSTY', { bg: PINK, fg: '#ffffff', stripe: LIME, w: 512, h: 128 }), roughness: 0.6 });
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.02), [metal, metal, metal, metal, face, face]); panel.position.y = 0.42; grp.add(panel);
+    } else if (type === 'scooter') {
+      // электросамокат: дека, руль, колёса (ездок — из толпы)
+      const dark = std('#1d1f26', { roughness: 0.4 }), acc = std(LIME, { roughness: 0.4 });
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.05, 0.78).translate(0, 0.12, 0), dark); grp.add(deck);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 1.02, 8), dark); stem.position.set(0, 0.62, -0.36); stem.rotation.x = -0.12; grp.add(stem);
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.5, 8).rotateZ(PI / 2), dark); bar.position.set(0, 1.12, -0.42); grp.add(bar);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.04), new THREE.MeshBasicMaterial({ color: '#fff7cf' })); lamp.position.set(0, 0.95, -0.44); grp.add(lamp);
+      for (const z of [-0.34, 0.33]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.05, 16).rotateZ(PI / 2), dark); w.position.set(0, 0.095, z); grp.add(w); const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.055, 10).rotateZ(PI / 2), acc); hub.position.copy(w.position); grp.add(hub); }
+    } else if (type === 'cup') {
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.034, 0.1, 12), std('#ffffff')); grp.add(c);
+      const w = new THREE.Mesh(new THREE.CircleGeometry(0.04, 12).rotateX(-PI / 2), std('#7fd0ff', { roughness: 0.1 })); w.position.y = 0.045; grp.add(w);
     } else if (type === 'dog') {
       const d = D.Chars.buildDog(); grp.add(d.root); grp.userData.dog = d;
     } else if (type === 'camera') {
@@ -3589,11 +3925,12 @@ details.part[open] summary::after { content: " ▴"; }
   function poolsEnd() { for (const k in pools) { const p = pools[k]; for (let i = p.used; i < p.list.length; i++) p.list[i].visible = false; } }
 
   /* ---------- эффекты вокруг героя ---------- */
+  const BOOST_COL = { caffeine: '#ff2e93', magnesium: '#39e27a', puer: '#ff9b2e' };
   let fx = {};
   function buildFx() {
     fx.shield = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: '#8b5cff', transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending }));
     fx.shield.scale.set(0.7, 1.1, 0.7); scene.add(fx.shield);
-    fx.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: D.Tex.radial('rgba(255,46,147,0.7)', 'rgba(255,46,147,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    fx.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: D.Tex.radial('rgba(255,255,255,0.7)', 'rgba(255,255,255,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     fx.aura.scale.set(2.4, 2.8, 1); scene.add(fx.aura);
     fx.rings = [];
     for (let i = 0; i < 3; i++) {
@@ -3633,7 +3970,7 @@ details.part[open] summary::after { content: " ▴"; }
     time += dt;
     const km = D.zToKm(g.pz);
     // камера
-    const boost = g.caffT > 0 ? 1 : 0;
+    const boost = g.boostT > 0 ? 1 : 0;
     const back = 6.9 + (reduced ? 0 : boost * 0.6 + clamp((g.speed - 16) / 10, 0, 0.6) * 0.6);
     camState.back += (back - camState.back) * Math.min(1, dt * 2.5);
     camState.x += (g.px * 0.55 - camState.x) * Math.min(1, dt * 5);
@@ -3665,18 +4002,19 @@ details.part[open] summary::after { content: " ▴"; }
     if (g.y > 0.05) D.Chars.poseJump(player);
     else D.Chars.poseRun(player, g.state === 'idle' ? 0 : g.phase, g.speed > 0.5 ? clamp(0.75 + g.speed / 40, 0.75, 1.25) : 0.05, g.hitT > 0 ? 0.32 : 0.13);
     const blink = g.invulnT > 0 && g.pacerT <= 0 && !reduced && Math.floor(g.invulnT * 12) % 2;
-    player.mats.shirtTex.emissive.set(g.caffT > 0 ? '#ff2e93' : g.magT > 0 ? '#39e27a' : '#000000');
-    player.mats.shirtTex.emissiveIntensity = g.caffT > 0 ? 0.25 + 0.1 * Math.sin(time * 10) : g.magT > 0 ? 0.3 * g.magT : blink ? 0.2 : 0;
+    const bk = g.boostT > 0 ? g.boostKind : '';
+    player.mats.shirtTex.emissive.set(bk ? BOOST_COL[bk] : '#000000');
+    player.mats.shirtTex.emissiveIntensity = bk ? 0.25 + 0.1 * Math.sin(time * 10) : blink ? 0.2 : 0;
 
     // эффекты героя
     fx.shield.visible = g.pacerT > 0;
     if (fx.shield.visible) { fx.shield.position.set(g.px, g.y + 0.95, Z(g.pz)); fx.shield.material.opacity = g.pacerT < 2 ? 0.08 + 0.08 * Math.abs(Math.sin(time * 8)) : 0.16; }
-    fx.aura.visible = g.caffT > 0;
-    if (fx.aura.visible) fx.aura.position.set(g.px, g.y + 1.0, Z(g.pz) + 0.3);
+    fx.aura.visible = !!bk;
+    if (fx.aura.visible) { fx.aura.position.set(g.px, g.y + 1.0, Z(g.pz) + 0.3); fx.aura.material.color.set(BOOST_COL[bk]); }
     fx.rings.forEach((r, i) => {
-      r.visible = g.magT > 0;
+      r.visible = bk === 'magnesium';
       if (!r.visible) return;
-      const q = ((1 - g.magT / 1.4) + i / 3) % 1;
+      const q = (time * 0.8 + i / 3) % 1;
       r.position.set(g.px, g.y + q * 2, Z(g.pz)); r.material.opacity = (1 - q) * 0.8; r.scale.setScalar(1 + q * 0.3);
     });
     if (g.pacerT > 0) {
@@ -3728,6 +4066,8 @@ details.part[open] summary::after { content: " ▴"; }
     if (sc.dj.z > zFrom && sc.dj.z < g.pz + 200) {
       const lx = sc.dj.x + Math.sin(-1.05) * -0.1, lz = Z(sc.dj.z) + Math.cos(-1.05) * -0.1;
       crowd.add({ x: lx, y: 0.06, z: lz, ry: 2.09 }, { skin: '#d9a07a', hair: '#1c1c1c', shirt: VIOLET, shorts: '#111', shoes: '#fff', cap: PINK, glasses: true }, (J) => D.Chars.posePerson(J, 'dj', time, 1));
+      const dzj = sc.dj.z - g.pz;
+      if (dzj > -0.5 && dzj < 70) labels.push({ x: sc.dj.x, y: 2.5, z: sc.dj.z, name: '★ DJ KIM', star: true, dz: dzj });
     }
     const lvl = state.musicLevel || 0;
     if (world.speakers) world.speakers.forEach((s) => s.scale.setScalar(1 + (reduced ? 0 : lvl * 0.12 * Math.max(0, Math.sin(time * 13)))));
@@ -3741,7 +4081,7 @@ details.part[open] summary::after { content: " ▴"; }
         if (o.type === 'highfive') {
           crowd.add({ x: o.x, z: Z(o.z), ry: PI * 0.92 }, { skin: '#f1c9a5', hair: '#5a3a22', shirt: PINK, shorts: '#1e1e28', shoes: '#fff', cap: LIME }, (J) => D.Chars.posePerson(J, 'highfive', time, o.z));
         }
-        const it = take('item_' + o.type, () => makeItem(o.type));
+        const it = take('item_' + o.type + (o.variant || ''), () => makeItem(o.type, o.variant));
         it.position.set(o.x, 0, Z(o.z));
         const m = it.userData.model;
         if (m) { m.position.y = 0.9 + (reduced ? 0 : Math.sin(time * 3 + o.z) * 0.07); m.rotation.y = reduced ? 0.4 : time * 1.6 + o.z; }
@@ -3754,6 +4094,17 @@ details.part[open] summary::after { content: " ▴"; }
           const cam = take('camera', () => makeObstacle('camera'));
           if (o.walking) { cam.position.set(o.x + 0.3, 1.0, Z(o.z)); cam.rotation.set(0, ry, 0); }
           else { cam.position.set(o.x - 0.02, 1.62, Z(o.z) + 0.22); cam.rotation.set(0, ry, 0); }
+        } else if (o.type === 'scooter') {
+          // едет поперёк трассы справа налево; ездок стоит на деке
+          const ry = PI / 2;
+          crowd.add({ x: o.x, y: 0.15, z: Z(o.z), ry }, { skin: '#d9a07a', hair: '#1c1c1c', shirt: '#3a7bff', shorts: '#2f3a55', shoes: '#ffffff', cap: '#1e1e28' },
+            (J) => D.Chars.posePerson(J, 'scooter', time, o.z));
+          const sc2 = take('scooter', () => makeObstacle('scooter')); sc2.position.set(o.x, 0, Z(o.z)); sc2.rotation.y = ry;
+        } else if (o.type === 'volunteer') {
+          // волонтёр в оранжевом жилете протягивает стакан
+          crowd.add({ x: o.x, z: Z(o.z), ry: PI }, { skin: '#e3b18c', hair: '#5a3a22', longHair: (o.z | 0) % 2 === 0, female: (o.z | 0) % 2 === 0, shirt: '#ff7a1a', shorts: '#2f3a55', shoes: '#222', cap: '#ffffff' },
+            (J) => D.Chars.posePerson(J, 'offer', time, o.z));
+          const cup = take('cup', () => makeObstacle('cup')); cup.position.set(o.x - 0.2, 1.22, Z(o.z) + 0.5);
         } else if (o.type === 'dog') {
           const d = take('dog', () => makeObstacle('dog'));
           d.position.set(o.x, 0, Z(o.z)); d.rotation.y = o.dir > 0 ? -PI / 2 : PI / 2;
@@ -3809,10 +4160,10 @@ details.part[open] summary::after { content: " ▴"; }
     R.playerScreen = ps;
     // линии скорости
     const f = D.speedFactors(g);
-    const fast = !reduced && (g.caffT > 0 || f.cadF * f.resF * f.formF > 1.25);
+    const fast = !reduced && (g.boostT > 0 || f.cadF > 1.15);
     if (fast && speedLines.length < 26 && Math.random() < 0.8) {
       const side = Math.random() < 0.5 ? -1 : 1;
-      speedLines.push({ x: W / 2 + side * W * (0.3 + Math.random() * 0.2), y: H * (0.35 + Math.random() * 0.55), v: 0, side, life: 0.35, c: g.caffT > 0 ? (Math.random() < 0.5 ? PINK : LIME) : '#ffffff' });
+      speedLines.push({ x: W / 2 + side * W * (0.3 + Math.random() * 0.2), y: H * (0.35 + Math.random() * 0.55), v: 0, side, life: 0.35, c: g.boostT > 0 ? (Math.random() < 0.5 ? PINK : LIME) : '#ffffff' });
     }
     c.lineCap = 'round';
     const hor = H * 0.4;
@@ -3834,9 +4185,8 @@ details.part[open] summary::after { content: " ▴"; }
       c.globalAlpha = 1;
     }
     if (g.flashT > 0) { c.fillStyle = 'rgba(255,255,255,' + (g.flashT / 0.4) * (reduced ? 0.25 : 0.55) + ')'; c.fillRect(0, 0, W, H); }
-    if (g.magT > 0 || g.hitT > 0) {
-      const col = g.magT > 0 ? '57,226,122' : '255,122,26';
-      const a = g.magT > 0 ? g.magT / 1.4 * 0.35 : g.hitT / 0.45 * 0.3;
+    if (g.hitT > 0) {
+      const col = '255,122,26', a = g.hitT / 0.45 * 0.3;
       const vg = c.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.3, W / 2, H * 0.55, Math.max(W, H) * 0.75);
       vg.addColorStop(0, 'rgba(' + col + ',0)'); vg.addColorStop(1, 'rgba(' + col + ',' + a + ')');
       c.fillStyle = vg; c.fillRect(0, 0, W, H);
@@ -4025,21 +4375,26 @@ details.part[open] summary::after { content: " ▴"; }
     $('hDist').textContent = km.toFixed(1).replace('.', ',');
     $('hTime').textContent = fmt(g.finished ? g.result : D.raceTime(g));
     $('hPos').textContent = g.position + '/' + g.total;
-    meter('mEnergy', Math.round(g.energy), g.energy, g.energy < 25);
-    meter('mCal', Math.round(g.cal), g.cal, g.cal < 25);
-    meter('mWater', Math.round(g.water), g.water, g.water < 25);
-    meter('mHr', Math.round(g.hr), (g.hr - 60) / 1.4, g.hr > 175);
-    meter('mCad', g.cad, (g.cad - D.CAD.min) / (D.CAD.max - D.CAD.min) * 100, g.cad >= 192);
-    $('cCad').textContent = g.cad;
+    // запасы — в секундах игры; за 5 с до конца шкала жёлтая, пустая — красная
+    for (const [id, k] of [['mGel', 'gel'], ['mDrink', 'drink'], ['mFood', 'food']]) {
+      meter(id, Math.ceil(g[k]) + ' с', g[k] / D.SUPPLY[k] * 100, g.warn[k]);
+      $(id).classList.toggle('empty', g[k] <= 0);
+    }
+    meter('mHr', Math.round(g.hr), (g.hr - 60) / 1.4, g.hr > 180);
+    // фактический каденс: с бустером, пустыми запасами и сбитым темпом
+    meter('mCad', g.cadEff, (g.cadEff - 120) / (D.CAD.boost - 120) * 100, g.cadEff < g.cad);
+    $('cCad').textContent = g.cadEff;
     $('hDistrict').textContent = D.DISTRICTS[g.district].name;
     $('hProg').style.width = (km / D.KM_TOTAL * 100) + '%';
-    $('wEnergy').classList.toggle('show', g.warn.energy);
-    $('wCal').classList.toggle('show', g.warn.cal);
-    $('wWater').classList.toggle('show', g.warn.water);
+    for (const [id, k, what] of [['wGel', 'gel', 'гель'], ['wDrink', 'drink', 'питьё'], ['wFood', 'food', 'еда']]) {
+      const el = $(id), out = g[k] <= 0;
+      el.classList.toggle('show', g.warn[k]); el.classList.toggle('out', out);
+      if (g.warn[k]) el.textContent = out ? 'Нет: ' + what + ' — каденс −' + D.CAD.empty : what[0].toUpperCase() + what.slice(1) + ' закончится через ' + Math.ceil(g[k]) + ' с';
+    }
     let chips = '';
-    if (g.caffT > 0) chips += '<span class="chip c-caff">Кофеин ' + Math.ceil(g.caffT) + ' с</span>';
+    if (g.boostT > 0) chips += '<span class="chip c-caff">' + D.ITEMS.boost.variants.find((v) => v.id === g.boostKind).name + ' · ' + D.CAD.boost + ' · ' + Math.ceil(g.boostT) + ' с</span>';
     if (g.pacerT > 0) chips += '<span class="chip c-pacer">Пейсер ' + Math.ceil(g.pacerT) + ' с</span>';
-    if (g.slowT > 0) chips += '<span class="chip c-slow">Замедление ' + Math.ceil(g.slowT) + ' с</span>';
+    if (g.hitPenT > 0) chips += '<span class="chip c-slow">Темп −' + g.hitPen + ' · ' + Math.ceil(g.hitPenT) + ' с</span>';
     if (chips !== lastChips || force) { $('chips').innerHTML = chips; lastChips = chips; }
   }
 
@@ -4059,7 +4414,7 @@ details.part[open] summary::after { content: " ▴"; }
       switch (e.kind) {
         case 'item':
           toast(e.title, e.sub, 'good');
-          A.play(e.type === 'caffeine' ? 'boost' : e.type === 'highfive' ? 'clap' : e.type === 'magnesium' || e.type === 'pacer' ? 'bonus' : 'pickup');
+          A.play(e.type === 'boost' ? 'boost' : e.type === 'highfive' ? 'clap' : e.type === 'pacer' ? 'bonus' : 'pickup');
           if (G.navigator && navigator.vibrate && !reduced()) try { navigator.vibrate(12); } catch (x) { /* нет вибрации */ }
           break;
         case 'hit':
@@ -4070,6 +4425,9 @@ details.part[open] summary::after { content: " ▴"; }
         case 'shield': toast(e.title, e.sub, 'good'); A.play('shield'); break;
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
+        case 'km': toast(e.title, e.sub, 'info'); A.play('bonus'); break;
+        case 'warn': A.play('tick'); break;
+        case 'empty': toast('НЕТ: ' + D.SUPPLY_NAME[e.res].toUpperCase(), 'каденс −' + D.CAD.empty + ' — подбери ' + (e.res === 'gel' ? 'гель' : e.res === 'drink' ? 'питьё' : 'еду'), 'bad'); break;
         case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
@@ -4089,8 +4447,8 @@ details.part[open] summary::after { content: " ▴"; }
     $('fOvt').textContent = g.overtakes;
     $('fBonus').textContent = '−' + fmtMS(g.bonus);
     $('fPen').textContent = '+' + fmtMS(g.penalty);
-    const names = { gel: 'гели', banana: 'еда', water: 'вода', breath: 'дыхание', pacer: 'пейсер', caffeine: 'кофеин', magnesium: 'магний', highfive: '«дай пять»' };
-    const hn = { puddle: 'лужи', fence: 'ограждения', barrier: 'заграждения', photographer: 'фотографы', dog: 'собаки', runner: 'бегуны' };
+    const names = { gel: 'гели', drink: 'питьё', food: 'еда', boost: 'бустеры', pacer: 'пейсер', highfive: '«дай пять»' };
+    const hn = { puddle: 'лужи', fanbarrier: 'фан-барьеры', photographer: 'фотографы', dog: 'собаки', scooter: 'самокатчики', volunteer: 'волонтёры', runner: 'бегуны' };
     const it = Object.keys(g.stats.items).map((k) => names[k] + ' ×' + g.stats.items[k]).join(', ');
     const ht = Object.keys(g.stats.hits).map((k) => hn[k] + ' ×' + g.stats.hits[k]).join(', ');
     $('fItems').textContent = 'Подобрано: ' + (it || 'ничего') + '.';
@@ -4175,8 +4533,12 @@ details.part[open] summary::after { content: " ▴"; }
         } else if (state === 'run') {
           D.update(g, dt);
           handleEvents();
-          const djZ = D.kmToZ(D.DJ_KM);
-          const lvl = Math.pow(D.clamp(1 - Math.abs(g.pz - djZ) / 260, 0, 1), 1.5);
+          // сет DJ KIM: на главной точке Дасти слышно издалека, на точках поддержки — тише
+          let lvl = 0;
+          for (const k of D.RAVE_KM) {
+            const main = k === D.DJ_KM, range = main ? 420 : 220;
+            lvl = Math.max(lvl, Math.pow(D.clamp(1 - Math.abs(g.pz - D.kmToZ(k)) / range, 0, 1), 1.5) * (main ? 1 : 0.65));
+          }
           A.updateMusic(lvl);
           if (g.finished) { state = 'finishing'; finishDelay = 0; }
           R.render(g, dt, { musicLevel: lvl });

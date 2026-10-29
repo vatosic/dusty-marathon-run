@@ -148,21 +148,26 @@
     $('hDist').textContent = km.toFixed(1).replace('.', ',');
     $('hTime').textContent = fmt(g.finished ? g.result : D.raceTime(g));
     $('hPos').textContent = g.position + '/' + g.total;
-    meter('mEnergy', Math.round(g.energy), g.energy, g.energy < 25);
-    meter('mCal', Math.round(g.cal), g.cal, g.cal < 25);
-    meter('mWater', Math.round(g.water), g.water, g.water < 25);
-    meter('mHr', Math.round(g.hr), (g.hr - 60) / 1.4, g.hr > 175);
-    meter('mCad', g.cad, (g.cad - D.CAD.min) / (D.CAD.max - D.CAD.min) * 100, g.cad >= 192);
-    $('cCad').textContent = g.cad;
+    // запасы — в секундах игры; за 5 с до конца шкала жёлтая, пустая — красная
+    for (const [id, k] of [['mGel', 'gel'], ['mDrink', 'drink'], ['mFood', 'food']]) {
+      meter(id, Math.ceil(g[k]) + ' с', g[k] / D.SUPPLY[k] * 100, g.warn[k]);
+      $(id).classList.toggle('empty', g[k] <= 0);
+    }
+    meter('mHr', Math.round(g.hr), (g.hr - 60) / 1.4, g.hr > 180);
+    // фактический каденс: с бустером, пустыми запасами и сбитым темпом
+    meter('mCad', g.cadEff, (g.cadEff - 120) / (D.CAD.boost - 120) * 100, g.cadEff < g.cad);
+    $('cCad').textContent = g.cadEff;
     $('hDistrict').textContent = D.DISTRICTS[g.district].name;
     $('hProg').style.width = (km / D.KM_TOTAL * 100) + '%';
-    $('wEnergy').classList.toggle('show', g.warn.energy);
-    $('wCal').classList.toggle('show', g.warn.cal);
-    $('wWater').classList.toggle('show', g.warn.water);
+    for (const [id, k, what] of [['wGel', 'gel', 'гель'], ['wDrink', 'drink', 'питьё'], ['wFood', 'food', 'еда']]) {
+      const el = $(id), out = g[k] <= 0;
+      el.classList.toggle('show', g.warn[k]); el.classList.toggle('out', out);
+      if (g.warn[k]) el.textContent = out ? 'Нет: ' + what + ' — каденс −' + D.CAD.empty : what[0].toUpperCase() + what.slice(1) + ' закончится через ' + Math.ceil(g[k]) + ' с';
+    }
     let chips = '';
-    if (g.caffT > 0) chips += '<span class="chip c-caff">Кофеин ' + Math.ceil(g.caffT) + ' с</span>';
+    if (g.boostT > 0) chips += '<span class="chip c-caff">' + D.ITEMS.boost.variants.find((v) => v.id === g.boostKind).name + ' · ' + D.CAD.boost + ' · ' + Math.ceil(g.boostT) + ' с</span>';
     if (g.pacerT > 0) chips += '<span class="chip c-pacer">Пейсер ' + Math.ceil(g.pacerT) + ' с</span>';
-    if (g.slowT > 0) chips += '<span class="chip c-slow">Замедление ' + Math.ceil(g.slowT) + ' с</span>';
+    if (g.hitPenT > 0) chips += '<span class="chip c-slow">Темп −' + g.hitPen + ' · ' + Math.ceil(g.hitPenT) + ' с</span>';
     if (chips !== lastChips || force) { $('chips').innerHTML = chips; lastChips = chips; }
   }
 
@@ -182,7 +187,7 @@
       switch (e.kind) {
         case 'item':
           toast(e.title, e.sub, 'good');
-          A.play(e.type === 'caffeine' ? 'boost' : e.type === 'highfive' ? 'clap' : e.type === 'magnesium' || e.type === 'pacer' ? 'bonus' : 'pickup');
+          A.play(e.type === 'boost' ? 'boost' : e.type === 'highfive' ? 'clap' : e.type === 'pacer' ? 'bonus' : 'pickup');
           if (G.navigator && navigator.vibrate && !reduced()) try { navigator.vibrate(12); } catch (x) { /* нет вибрации */ }
           break;
         case 'hit':
@@ -193,6 +198,9 @@
         case 'shield': toast(e.title, e.sub, 'good'); A.play('shield'); break;
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
+        case 'km': toast(e.title, e.sub, 'info'); A.play('bonus'); break;
+        case 'warn': A.play('tick'); break;
+        case 'empty': toast('НЕТ: ' + D.SUPPLY_NAME[e.res].toUpperCase(), 'каденс −' + D.CAD.empty + ' — подбери ' + (e.res === 'gel' ? 'гель' : e.res === 'drink' ? 'питьё' : 'еду'), 'bad'); break;
         case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
@@ -212,8 +220,8 @@
     $('fOvt').textContent = g.overtakes;
     $('fBonus').textContent = '−' + fmtMS(g.bonus);
     $('fPen').textContent = '+' + fmtMS(g.penalty);
-    const names = { gel: 'гели', banana: 'еда', water: 'вода', breath: 'дыхание', pacer: 'пейсер', caffeine: 'кофеин', magnesium: 'магний', highfive: '«дай пять»' };
-    const hn = { puddle: 'лужи', fence: 'ограждения', barrier: 'заграждения', photographer: 'фотографы', dog: 'собаки', runner: 'бегуны' };
+    const names = { gel: 'гели', drink: 'питьё', food: 'еда', boost: 'бустеры', pacer: 'пейсер', highfive: '«дай пять»' };
+    const hn = { puddle: 'лужи', fanbarrier: 'фан-барьеры', photographer: 'фотографы', dog: 'собаки', scooter: 'самокатчики', volunteer: 'волонтёры', runner: 'бегуны' };
     const it = Object.keys(g.stats.items).map((k) => names[k] + ' ×' + g.stats.items[k]).join(', ');
     const ht = Object.keys(g.stats.hits).map((k) => hn[k] + ' ×' + g.stats.hits[k]).join(', ');
     $('fItems').textContent = 'Подобрано: ' + (it || 'ничего') + '.';
@@ -298,8 +306,12 @@
         } else if (state === 'run') {
           D.update(g, dt);
           handleEvents();
-          const djZ = D.kmToZ(D.DJ_KM);
-          const lvl = Math.pow(D.clamp(1 - Math.abs(g.pz - djZ) / 260, 0, 1), 1.5);
+          // сет DJ KIM: на главной точке Дасти слышно издалека, на точках поддержки — тише
+          let lvl = 0;
+          for (const k of D.RAVE_KM) {
+            const main = k === D.DJ_KM, range = main ? 420 : 220;
+            lvl = Math.max(lvl, Math.pow(D.clamp(1 - Math.abs(g.pz - D.kmToZ(k)) / range, 0, 1), 1.5) * (main ? 1 : 0.65));
+          }
           A.updateMusic(lvl);
           if (g.finished) { state = 'finishing'; finishDelay = 0; }
           R.render(g, dt, { musicLevel: lvl });
