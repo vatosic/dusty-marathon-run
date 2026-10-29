@@ -43,7 +43,7 @@
     const sc = sun.shadow.camera; sc.left = -16; sc.right = 16; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 140;
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
     scene.add(sun); scene.add(sun.target);
-    crowd = new D.Chars.Crowd(scene, 130);
+    crowd = new D.Chars.Crowd(scene, 200);
     player = D.Chars.buildRig({ skin: '#d49a72', hair: '#2e211a', shirt: PINK, shorts: '#121216', shoes: '#f4f4f4', cap: PINK, stripe: '#2a2a30' }, { shirtTex: D.Tex.shirt() });
     scene.add(player.root);
     buildFx();
@@ -323,11 +323,12 @@
     const vis = [];
     for (const rv of g.rivals) { const dz = rv.z - g.pz; if (dz > -2.2 && dz < 170) vis.push(rv); }
     vis.sort((a, b) => Math.abs(a.z - g.pz) - Math.abs(b.z - g.pz));
-    for (let i = 0; i < Math.min(16, vis.length); i++) {
+    // на масс-старте в кадре много бегунов: рисуем ближайших 36, подписываем ближайших 12
+    for (let i = 0; i < Math.min(36, vis.length); i++) {
       const rv = vis[i];
       crowd.add({ x: rv.x, z: Z(rv.z) }, rv.look, (J) => D.Chars.poseRun(J, rv.phase, 0.8 + rv.v / 60, 0.12));
       const dz = rv.z - g.pz;
-      if (dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.star ? '★ ' + rv.name : rv.name, star: rv.star, dz });
+      if (i < 12 && dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.star ? '★ ' + rv.name : rv.name, star: rv.star, dz });
     }
 
     // болельщики, гуляющие, диджей
@@ -337,6 +338,7 @@
     while (lo < hi) { const m = (lo + hi) >> 1; if (sc.fans[m].z < zFrom) lo = m + 1; else hi = m; }
     for (let i = lo; i < sc.fans.length && sc.fans[i].z < zTo && !crowd.full(); i++) {
       const f = sc.fans[i];
+      if (f.zone && f.z > g.pz + 110) continue; // танцпол Лужников — только ближняя часть
       const pose = f.sign ? 'sign' : f.pose;
       const ry = 2.5 + (f.phase - 3) * 0.08;
       crowd.add({ x: f.x, z: Z(f.z), ry }, f.look, (J) => D.Chars.posePerson(J, pose, time, f.phase));
@@ -364,6 +366,11 @@
       crowd.add({ x: lx, y: 0.06, z: lz, ry: 2.09 }, { skin: '#d9a07a', hair: '#1c1c1c', shirt: VIOLET, shorts: '#111', shoes: '#fff', cap: PINK, glasses: true }, (J) => D.Chars.posePerson(J, 'dj', time, 1));
       const dzj = sc.dj.z - g.pz;
       if (dzj > -0.5 && dzj < 70) labels.push({ x: sc.dj.x, y: 2.5, z: sc.dj.z, name: '★ DJ KIM', star: true, dz: dzj });
+    }
+    // диджеи на сценах зоны Лужников
+    for (const sg of sc.stages || []) {
+      if (sg.z < zFrom || sg.z > g.pz + 200 || crowd.full()) continue;
+      crowd.add({ x: sg.x, y: 0.75, z: Z(sg.z), ry: 2.17 }, sg.look || (sg.look = D.randomLook(D.rng(Math.round(sg.z)), false)), (J) => D.Chars.posePerson(J, 'dj', time, sg.z));
     }
     const lvl = state.musicLevel || 0;
     if (world.speakers) world.speakers.forEach((s) => s.scale.setScalar(1 + (reduced ? 0 : lvl * 0.12 * Math.max(0, Math.sin(time * 13)))));

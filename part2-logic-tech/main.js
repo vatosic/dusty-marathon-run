@@ -109,7 +109,7 @@
     g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0, { rivalLane });
     paused = false; finishDelay = 0; hudT = 0;
     $('toasts').textContent = ''; clearBig();
-    state = 'countdown'; countT = 0; countShown = -1;
+    state = 'countdown'; countT = 0; countShown = -1; lastStep = 0;
     show(null);
     document.body.classList.add('playing');
     buildTrackTicks();
@@ -127,7 +127,7 @@
     state = 'menu'; paused = false; g = null; clearBig();
     document.body.classList.remove('playing');
     $('countdown').classList.remove('show');
-    A.updateMusic(0); A.setPaused(false);
+    A.updateMusic(0); A.updateCrowd(0); A.setPaused(false);
     show('start');
   }
   $('btnStart').addEventListener('click', startRun);
@@ -252,9 +252,25 @@
     g.events.length = 0;
   }
 
+  // шаг героя — звук на каждой смене опорной ноги (в прыжке тихо)
+  let lastStep = 0;
+  function stepSound(track) {
+    const n = Math.floor(g.phase / Math.PI);
+    if (n !== lastStep) { lastStep = n; if (g.y < 0.05) A.step(track, g.hr, n); }
+  }
+  // громкость болельщиков: сколько людей рядом на набережной, у финиша — громче
+  function crowdLevel(g) {
+    const f = g.scenery.fans, z0 = g.pz - 25;
+    let lo = 0, hi = f.length, n = 0;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (f[m].z < z0) lo = m + 1; else hi = m; }
+    for (let i = lo; i < f.length && f[i].z < g.pz + 45; i++) n++;
+    const toEnd = D.WORLD_LEN - g.pz;
+    return D.clamp(0.22 + n / 28 + (toEnd < 120 ? (1 - toEnd / 120) * 0.6 : 0), 0, 1);
+  }
+
   function showFinish() {
     state = 'done';
-    A.updateMusic(0);
+    A.updateMusic(0); A.updateCrowd(0);
     $('fTime').textContent = fmt(g.result);
     const gm = Math.floor(g.finishT / 60), gs = Math.floor(g.finishT % 60);
     $('fFormula').textContent = 'Забег занял ' + gm + ' мин ' + String(gs).padStart(2, '0') + ' с игры — это ' + fmt(g.finishT * D.TIME_SCALE) + ' марафона (секунда игры = минута). Штрафы +' + fmtMS(g.penalty) + ', бонусы −' + fmtMS(g.bonus) + '.' +
@@ -346,17 +362,22 @@
             A.play(n > 0 ? 'tick' : 'go');
           }
           if (countT >= 1.8) { state = 'run'; setTimeout(() => { if (state !== 'countdown') $('countdown').classList.remove('show'); }, 450); }
+          A.updateCrowd(0.7); // старт: болельщики шумят
           R.render(g, dt, { musicLevel: 0 });
         } else if (state === 'run') {
           D.update(g, dt);
           handleEvents();
-          // сет DJ KIM: на главной точке Дасти слышно издалека, на точках поддержки — тише
+          // техно DJ KIM: в Лужниках — на всю зону поддержки, на точках Дасти — слышно издалека, на малых — тише
           let lvl = 0;
           for (const k of D.RAVE_KM) {
             const main = k === D.DJ_KM, range = main ? 420 : 220;
             lvl = Math.max(lvl, Math.pow(D.clamp(1 - Math.abs(g.pz - D.kmToZ(k)) / range, 0, 1), 1.5) * (main ? 1 : 0.65));
           }
+          const zk = D.zToKm(g.pz);
+          lvl = Math.max(lvl, D.clamp(1 - Math.max(D.TRACK_KM[0] - zk, zk - D.TRACK_KM[1], 0) / 0.6, 0, 1));
           A.updateMusic(lvl);
+          A.updateCrowd(crowdLevel(g));
+          stepSound(zk >= D.TRACK_KM[0] && zk <= D.TRACK_KM[1]);
           if (g.finished) { state = 'finishing'; finishDelay = 0; }
           R.render(g, dt, { musicLevel: lvl });
           hudT -= dt; if (hudT <= 0) { updateHUD(); hudT = 0.1; }
@@ -364,7 +385,7 @@
           // после финиша бегун плавно сбавляет; мир для результата уже зафиксирован
           finishDelay += dt;
           g.speed *= Math.pow(0.25, dt); g.pz += g.speed * dt; g.phase += dt * 6;
-          A.updateMusic(0);
+          A.updateMusic(0); A.updateCrowd(1); stepSound(false);
           R.render(g, dt, { musicLevel: 0 });
           if (finishDelay > 1.4) { updateHUD(true); showFinish(); }
         } else if (state === 'done') {

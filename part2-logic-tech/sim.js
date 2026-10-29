@@ -273,6 +273,18 @@
           flag: !rv.main && i % 5 === 0 });
       }
     }
+    // Вся правая сторона Лужников — зона поддержки Дасти: сцены с диджеями на понтонах у парапета,
+    // светомузыка вдоль набережной и танцпол на всю длину (у главной сцены DJ KIM — свой танцпол)
+    sc.zone = { z0: kz(D.TRACK_KM[0]) + 4, z1: kz(D.TRACK_KM[1]) - 4 };
+    sc.stages = [];
+    for (let z = sc.zone.z0 + 16; z < sc.zone.z1 - 8; z += 44) if (Math.abs(z - djZ) > 34) sc.stages.push({ z, x: 9.2 });
+    for (let z = sc.zone.z0; z < sc.zone.z1; z += 2 + r()) {
+      if (Math.abs(z - djZ) < 16) continue;
+      for (let row = 0; row < 2; row++) {
+        sc.fans.push({ z: z + r() * 0.8, x: 3.3 + row * 1.25 + r() * 0.5, look: D.randomLook(r, false), pose: r() < 0.12 ? 'jump' : 'dance',
+          phase: r() * 6.28, sign: null, flag: r() < 0.1, zone: true });
+      }
+    }
     for (let i = 0; i < 8; i++) {
       const pair = i % 2;
       sc.walkers.push({ z0: djZ - 140 + Math.floor(i / 2) * 75 + pair * 1.1, x: 4.0 + pair * 0.75, v: (Math.floor(i / 2) % 2 ? -1 : 1) * 0.9,
@@ -308,59 +320,51 @@
   /* ---------------- Соперники ---------------- */
   // место соперника на своей дорожке: постоянный сдвиг, чтобы шли не гуськом, а по двое
   const laneX = (r) => D.RIVAL_LANE.x + (r() - 0.5) * D.RIVAL_LANE.spread;
+  // Общий масс-старт: все в коридоре перед стартовой аркой — впереди звёзды, за ними клуб по ожидаемому времени,
+  // игрок в средней полосе за самыми быстрыми. Темп ровный: клуб равномерно финиширует за 2:30–4:00 (D.CLUB_T),
+  // звёзды — быстрее, за 2:05–2:29 (D.STARS_T); в место и итоговое время звёзды не входят.
+  const starLook = (r, st) => ({ skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
+    shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false });
   D.initRivals = function (participants, seed, rivalLane) {
     const r = mulberry32(seed ^ 0x51ed27);
-    const N = participants.length;
-    return participants.map((p, i) => {
-      const f = N > 1 ? i / (N - 1) : 0.5;
-      const z0 = 6 + Math.pow(r(), 1.1) * D.kmToZ(20) + f * 4;
-      const T = 128 + Math.pow(r(), 0.85) * 170; // секунды игры до финиша (2:08:00 … 4:58:00)
-      return { id: p.id, name: p.name, z0, T, bumpT: 0, bumpDir: 1, v: (L - z0) / T, lane: Math.floor(r() * 3), x: 0, z: z0, ahead: true, passed: false,
-        phase: r() * 6.28, look: D.randomLook(r, false), dodge: 0 };
-    }).map((rv) => { rv.laneX = laneX(r); rv.x = rivalLane ? rv.laneX : LANES[rv.lane]; return rv; });
+    // равномерно по слоям: у каждого свой слой [a + k·w, a + (k+1)·w), внутри — случайно
+    const strat = (n, ab) => shuffle(r, [...Array(n).keys()]).map((k) => ab[0] + (ab[1] - ab[0]) * (k + r()) / n);
+    const club = participants.map((p) => ({ id: p.id, name: p.name, look: D.randomLook(r, false) }));
+    strat(club.length, D.CLUB_T).forEach((T, i) => { club[i].T = T; });
+    const stars = shuffle(r, D.STARS.slice()).map((st, k) => ({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, look: starLook(r, st) }));
+    strat(stars.length, D.STARS_T).forEach((T, i) => { stars[i].T = T; });
+    const all = stars.sort((a, b) => a.T - b.T).concat(club.sort((a, b) => a.T - b.T));
+    // ряды по 3 полосы (на своей дорожке — по двое); в ряду игрока (z = 0) средняя полоса — его
+    const per = rivalLane ? 2 : 3, gap = rivalLane ? 0.9 : 1.25, front = D.START_Z - 1.5;
+    const slots = [];
+    for (let k = 0; slots.length < all.length; k++) {
+      const z = front - k * gap;
+      for (let l = 0; l < per; l++) if (rivalLane || Math.abs(z) > 0.01 || l !== 1) slots.push({ z, lane: l });
+    }
+    return all.map((rv, i) => {
+      const sl = slots[i], z0 = sl.z + (r() - 0.5) * 0.3, lx = laneX(r);
+      return Object.assign(rv, { z0, v: (L - z0) / rv.T, bumpT: 0, bumpDir: 1, lane: rivalLane ? Math.floor(r() * 3) : sl.lane, laneX: lx,
+        x: rivalLane ? lx : LANES[sl.lane], z: z0, ahead: z0 > 0, passed: false, phase: r() * 6.28, dodge: 0 });
+    });
   };
   D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * t);
-
-  /* ---------------- Звёзды бега ---------------- */
-  // Выходят на D.STARS_KM вне поля зрения. Темп — от среднего темпа игрока: при нём встречи идут с ~35 км
-  // до финиша, сначала спринтеры, последними марафонцы; двух последних без ускорения до финиша не догнать.
-  const STAR_F = { sprint: [0.45, 0.55], mid: [0.55, 0.65], long: [0.66, 0.76] };
-  function spawnStars(g) {
-    const r = mulberry32(g.seed ^ 0x5ea75);
-    const vAvg = g.pz / Math.max(1, g.t);
-    const order = ['sprint', 'mid', 'long'].reduce((a, k) => a.concat(shuffle(r, D.STARS.filter((st) => st.kind === k))), []);
-    const n = order.length, S = D.zToKm(g.pz), endKm = D.KM_TOTAL + 0.4;
-    order.forEach((st, k) => {
-      const C = D.kmToZ((endKm - S) * (0.45 + 0.55 * k / Math.max(1, n - 1))); // путь игрока до встречи
-      const fr = STAR_F[st.kind], f = fr[0] + r() * (fr[1] - fr[0]);
-      const d = Math.max(180, (1 - f) * C);
-      const v = Math.max(vAvg * 0.3, vAvg * (C - d) / C);
-      const lane = Math.floor(r() * 3), lx = laneX(r);
-      g.rivals.push({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, z0: g.pz + d - v * g.t, v, T: 0,
-        bumpT: 0, bumpDir: 1, lane, x: g.rivalLane ? lx : LANES[lane], laneX: lx, z: g.pz + d, ahead: true, passed: false, phase: r() * 6.28, dodge: 0,
-        look: { skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
-          shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false } });
-    });
-    g.starsOn = true;
-    g.events.push({ kind: 'info', title: 'ЗВЁЗДЫ БЕГА НА ТРАССЕ', sub: 'лучшие бегуны России впереди — догони до финиша' });
-  }
 
   /* ---------------- Состояние забега ---------------- */
   // opts.rivalLane — тестовый режим: соперники на отдельной дорожке слева
   D.newGame = function (participants, seed, opts) {
     const rivalLane = !!(opts && opts.rivalLane);
     seed = seed >>> 0;
-    const plan = D.buildPlan(seed);
+    const plan = D.buildPlan(seed), rivals = D.initRivals(participants, seed, rivalLane);
     return {
-      seed, plan, scenery: D.buildScenery(seed, { rivalLane }), rivals: D.initRivals(participants, seed, rivalLane), rivalLane,
+      seed, plan, scenery: D.buildScenery(seed, { rivalLane }), rivals, rivalLane,
       t: 0, pz: 0, px: 0, lane: 1, vx: 0, y: 0, vy: 0, speed: 0,
       cad: D.CAD.start, cadEff: D.CAD.start, gel: D.SUPPLY.gel, drink: D.SUPPLY.drink, food: D.SUPPLY.food, hr: 92,
       bonus: 0, penalty: 0, boostT: 0, boostKind: '', pacerT: 0, invulnT: 0, hitPen: 0, hitPenT: 0,
       flashT: 0, hitT: 0, pickT: 0, pickColor: '#fff',
-      objIdx: 0, overtakes: 0, position: participants.length + 1, total: participants.length + 1,
+      objIdx: 0, overtakes: 0, position: 1 + rivals.filter((rv) => !rv.star && rv.z0 > 0).length, total: participants.length + 1,
       district: 0, unlocked: {}, warn: { gel: false, drink: false, food: false }, splits: [],
       finished: false, finishT: 0, result: 0, finalPos: 0, phase: 0,
-      starsOn: false, stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0, stars: 0 },
+      starsOn: D.STARS.length > 0, stats: { items: {}, hits: {}, shield: 0, bonusSec: 0, penaltySec: 0, stars: 0 },
       events: []
     };
   };
@@ -488,7 +492,6 @@
     }
 
     // соперники
-    if (!g.starsOn && km >= D.STARS_KM) spawnStars(g);
     let ahead = 0;
     const rows = g.plan.rows;
     for (const rv of g.rivals) {
@@ -496,8 +499,9 @@
       const isAhead = rv.z > g.pz;
       rv.ahead = isAhead;
       if (rv.star) {
-        // финишировавшая раньше игрока звезда (z = L) не обогнана
+        // финишировавшая раньше игрока звезда (z = L) не обогнана; обогнала снова — обгон не считается
         if (!isAhead && !rv.passed && rv.z < L) { rv.passed = true; g.stats.stars++; g.events.push({ kind: 'star', title: rv.name + ' позади', sub: rv.tag }); }
+        else if (isAhead && rv.passed) { rv.passed = false; g.stats.stars--; }
       } else if (isAhead) ahead++;
       const dz = rv.z - g.pz;
       if (dz > -12 && dz < 160) {
@@ -532,7 +536,7 @@
       }
     }
     g.position = 1 + ahead;
-    g.overtakes = g.total - g.position; // все соперники стартуют впереди
+    g.overtakes = g.total - g.position; // обогнанные — все участники клуба позади
 
     // район и новые механики
     const di = D.findDistrict(Math.min(km, 42.19));

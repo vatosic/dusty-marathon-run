@@ -103,6 +103,20 @@ ok(D.findDistrict(6.9) === 0 && D.findDistrict(7) === 1 && D.findDistrict(24) ==
   ok(club.every((p) => p.count === null && /^club-\d{3}$/.test(p.id) && p.name.length <= 24 && !/[@\d]/.test(p.name)), 'клуб: без ID сайта, счётчиков и контактов');
   ok(!club.some((p) => /EVENT/i.test(p.name)), 'клуб: служебный аккаунт исключён');
   ok(D.STARS.length === 20 && new Set(D.STARS.map((st) => st.name)).size === 20 && D.STARS.every((st) => st.tag && ['sprint', 'mid', 'long'].includes(st.kind)), 'звёзды: 20 с подписями');
+  // масс-старт: все в коридоре перед аркой, клуб равномерно 2:30–4:00, звёзды быстрее и впереди
+  for (const [seed, lane] of [[3, false], [4, false], [5, true]]) {
+    const rv = D.initRivals(club, seed, lane), cl = rv.filter((x) => !x.star), st = rv.filter((x) => x.star);
+    const L = D.WORLD_LEN, tag = `(сид ${seed}${lane ? ', своя дорожка' : ''})`;
+    ok(cl.length === 100 && st.length === 20, 'масс-старт: 100 участников и 20 звёзд ' + tag);
+    ok(rv.every((x) => x.z0 < D.START_Z && x.z0 > -50), 'масс-старт: все в стартовом коридоре ' + tag);
+    ok(cl.every((x) => x.T >= D.CLUB_T[0] && x.T <= D.CLUB_T[1]) && st.every((x) => x.T >= D.STARS_T[0] && x.T < D.CLUB_T[0]), 'клуб 2:30–4:00, звёзды быстрее ' + tag);
+    const buckets = [0, 0, 0, 0, 0, 0];
+    for (const x of cl) buckets[Math.min(5, Math.floor((x.T - D.CLUB_T[0]) / 15))]++;
+    ok(buckets.every((b) => b >= 15 && b <= 18), `клуб равномерно по 15 минутам: ${buckets} ` + tag);
+    ok(Math.min(...st.map((x) => x.z0)) > Math.max(...cl.map((x) => x.z0)) - 0.31, 'звёзды стоят впереди клуба ' + tag);
+    ok(rv.every((x) => Math.abs(D.rivalZ(x, x.T) - L) < 1e-6 && D.rivalZ(x, x.T * 0.99) < L), 'каждый финиширует ровно в своё время ' + tag);
+    if (!lane) ok(!rv.some((x) => Math.abs(x.z0) < 0.8 && Math.abs(x.x) < 0.6), 'место игрока на старте свободно ' + tag);
+  }
 }
 
 // 3c. Застройка: у каждого дома стиль района, ориентиры ничем не заслонены
@@ -122,7 +136,8 @@ for (const seed of [5, 77, 1234]) {
 for (const n of [0, 1, 5, 100]) {
   const g = D.newGame(D.demoParticipants().slice(0, n), 42);
   D.update(g, 0.016);
-  ok(g.position === n + 1 && g.total === n + 1, `стартовая позиция ${n + 1} из ${n + 1}`);
+  const ahead = g.rivals.filter((rv) => !rv.star && rv.z > g.pz).length;
+  ok(g.position === ahead + 1 && g.total === n + 1 && (n < 15 || ahead > 0 && ahead < n / 4), `на старте ${ahead + 1} из ${n + 1}`);
 }
 
 // 5. Запасы, каденс, столкновения, прыжок, пейсер, бустеры
@@ -130,6 +145,7 @@ function rigged(objs) {
   const g = D.newGame([], 1);
   g.plan = { objs, rows: [] };
   g.scenery = null;
+  g.rivals = []; // правила проверяем без соперников (звёзды стартуют со всеми)
   return g;
 }
 const mk = (type, z, lane, extra) => Object.assign({ type, lane, x: LANES[lane], z, kind: D.ITEMS[type] ? 'item' : 'obs', taken: false, hit: false }, extra || {});
@@ -291,21 +307,18 @@ for (const mode of ['perfect', 'smart', 'passive']) {
   console.log({ perfect: 'Идеальный бот:', smart: 'Средний бот:', passive: 'Пассивный (без управления):' }[mode]);
   console.table(res);
 }
-// звёзды бега: выходят один раз вне поля зрения, обгоны засчитываются, в место не входят
-for (const mode of ['smart', 'passive']) {
+// звёзды бега: стартуют со всеми, обгоны засчитываются (обогнала снова — не в счёт), в место не входят
+for (const mode of ['perfect', 'smart', 'passive']) {
   const g = D.newGame(D.clubParticipants(), mode === 'smart' ? 777 : 778);
-  let gap = null, starEvents = 0, steps = 0;
+  let starEvents = 0, steps = 0;
+  ok(g.rivals.filter((rv) => rv.star).length === D.STARS.length && g.rivals.every((rv) => !rv.star || rv.z > 0), `звёзды на масс-старте впереди (${mode})`);
   while (!g.finished && steps < 60 * 900) {
     bot(g, mode); D.update(g, 1 / 60); steps++;
-    for (const e of g.events) {
-      if (e.kind === 'star') starEvents++;
-      if (e.kind === 'info' && /ЗВЁЗДЫ/.test(e.title)) gap = Math.min(...g.rivals.filter((rv) => rv.star).map((rv) => rv.z - g.pz));
-    }
+    for (const e of g.events) if (e.kind === 'star') starEvents++;
     g.events.length = 0;
   }
-  ok(g.rivals.filter((rv) => rv.star).length === D.STARS.length, `звёзды вышли на трассу один раз (${mode})`);
-  ok(gap >= 179, `звёзды появляются вне поля зрения (${mode}: ${gap | 0})`);
-  ok(starEvents === g.stats.stars && g.stats.stars >= 8 && g.stats.stars <= D.STARS.length, `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
+  const behind = g.rivals.filter((rv) => rv.star && rv.z < D.WORLD_LEN).length;
+  ok(starEvents >= g.stats.stars && g.stats.stars === behind && (mode !== 'perfect' || behind >= 8), `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
   ok(g.total === 101 && g.finalPos >= 1 && g.finalPos <= 101, `звёзды не входят в место (${mode})`);
 }
 

@@ -449,10 +449,10 @@
     }
   }
 
-  // Светомузыка точки Дасти: лучи веером и стробы в такт 128 BPM
+  // Светомузыка точки Дасти: лучи веером и стробы в такт музыке (D.BPM)
   function raveLights(c, t, w, h, n) {
     if (reduced) return;
-    const beat = t * 128 / 60, kick = Math.pow(1 - (beat % 1), 4), cols = ['255,46,147', '108,43,217', '200,255,26', '33,198,198', '255,122,26'];
+    const beat = t * D.BPM / 60, kick = Math.pow(1 - (beat % 1), 4), cols = ['255,46,147', '108,43,217', '200,255,26', '33,198,198', '255,122,26'];
     c.save(); c.globalCompositeOperation = 'lighter';
     for (let i = 0; i < n; i++) {
       const a = -Math.PI / 2 + Math.sin(t * (0.9 + (i % 3) * 0.25) + i * 1.3) * 0.9, x0 = -w / 2 + i * w / (n - 1);
@@ -474,7 +474,7 @@
 
   function djBooth(c, t, level) {
     // LED-стена и светомузыка за шатром
-    const beat = t * 128 / 60, kick = Math.pow(1 - (beat % 1), 4), hue = (beat * 12) % 360;
+    const beat = t * D.BPM / 60, kick = Math.pow(1 - (beat % 1), 4), hue = (beat * 12) % 360;
     c.fillStyle = '#05030a'; c.fillRect(-3.4, -6.8, 6.8, 3.6);
     c.fillStyle = 'hsla(' + hue + ',90%,50%,' + (0.3 + 0.4 * kick) + ')'; c.fillRect(-3.4, -6.8, 6.8, 3.6);
     for (let i = 0; i < 16; i++) { const v = 0.3 + 0.7 * Math.abs(Math.sin(t * (2 + i * 0.4) + i)); c.fillStyle = 'hsl(' + (hue + i * 14) % 360 + ',95%,60%)'; c.fillRect(-3.3 + i * 0.41, -3.3 - v * 1.4, 0.32, v * 1.4); }
@@ -946,7 +946,8 @@
     // болельщики: бинарный поиск по отсортированному списку
     let lo = 0, hi = sc.fans.length;
     while (lo < hi) { const m = (lo + hi) >> 1; if (sc.fans[m].z < cam.z + 0.8) lo = m + 1; else hi = m; }
-    for (let i = lo; i < sc.fans.length && sc.fans[i].z < cam.z + 170; i++) push(sc.fans[i].z, 'fan', sc.fans[i]);
+    for (let i = lo; i < sc.fans.length && sc.fans[i].z < cam.z + 170; i++) if (!sc.fans[i].zone || sc.fans[i].z < cam.z + 90) push(sc.fans[i].z, 'fan', sc.fans[i]);
+    for (const st of sc.stages || []) if (inR(st.z)) push(st.z, 'stage', st);
     for (const w of sc.walkers) {
       let z = w.z0 + w.v * g.t;
       if (w.range) { const p = ((w.v * g.t) % (w.range * 2) + w.range * 2) % (w.range * 2); z = w.z0 + (p < w.range ? p : w.range * 2 - p); w.dirNow = p < w.range ? Math.sign(w.v) : -Math.sign(w.v); }
@@ -957,7 +958,7 @@
     for (const rv of sc.raves) if (!rv.main && inR(rv.z)) push(rv.z, 'rave', rv);
     if (inR(sc.dj.z - 6)) push(sc.dj.z - 6, 'arch', { text: 'DUSTY', kind: 'dusty' });
     if (inR(L)) push(L, 'arch', { text: 'ФИНИШ', kind: 'finish' });
-    if (inR(4)) push(4, 'arch', { text: 'СТАРТ', kind: 'start' });
+    if (inR(D.START_Z)) push(D.START_Z, 'arch', { text: 'СТАРТ', kind: 'start' });
     const luzhZ = D.kmToZ(D.TRACK_KM[0]) - 1.5;
     if (inR(luzhZ)) push(luzhZ, 'arch', { text: 'ЛУЖНИКИ', kind: 'luzh' });
     for (const k of D.KM_MARKS) if (inR(D.kmToZ(k))) push(D.kmToZ(k), 'arch', { text: k + ' КМ', kind: 'km' });
@@ -971,7 +972,7 @@
     const vis = [];
     for (const rv of g.rivals) { const dz = rv.z - cam.z; if (dz > 0.8 && dz < 165) vis.push(rv); }
     vis.sort((a, b) => Math.abs(a.z - g.pz) - Math.abs(b.z - g.pz));
-    for (let i = 0; i < Math.min(14, vis.length); i++) push(vis[i].z, 'rival', vis[i]);
+    for (let i = 0; i < Math.min(24, vis.length); i++) push(vis[i].z, 'rival', vis[i]);
     if (g.pacerT > 0) push(g.pz + 2.6, 'pacer', null);
     push(g.pz, 'player', null);
     drawList.sort((a, b) => b.z - a.z);
@@ -1003,6 +1004,7 @@
         }
         case 'dj': at(o.x); djBooth(ctx, time, musicLevel); ctx.restore(); break;
         case 'rave': at(4.4); raveSmall(ctx, time); ctx.restore(); break;
+        case 'stage': at(o.x - 1.4); raveSmall(ctx, time); ctx.restore(); break;
         case 'arch': at(0); arch(ctx, o.text, o.kind, time); ctx.restore(); break;
         case 'item': at(o.x); itemSprite(ctx, o.type, time, o.z, o.variant); ctx.restore(); break;
         case 'hf': {

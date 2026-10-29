@@ -240,7 +240,7 @@
       root.add(grp);
       return grp;
     };
-    arch(4, 'СТАРТ', 'start');
+    arch(D.START_Z, 'СТАРТ', 'start');
     arch(L, 'ФИНИШ', 'finish');
     arch(D.kmToZ(D.TRACK_KM[0]) - 1.5, 'ЛУЖНИКИ', 'luzh');
     for (const k of D.KM_MARKS) arch(D.kmToZ(k), k + ' КМ', 'km');
@@ -348,6 +348,64 @@
         }
         state.raves.push(R);
       }
+
+      // Лужники: вся правая сторона — зона поддержки Дасти. Сцены диджеев на понтонах за парапетом (общая LED-картинка),
+      // прожекторы на парапете и светодиодная лента вдоль всей зоны — мигают в такт
+      if (sc.zone) {
+        const ledCanvas = document.createElement('canvas'); ledCanvas.width = 512; ledCanvas.height = 256;
+        const ledTex = new THREE.CanvasTexture(ledCanvas);
+        state.zoneLed = { canvas: ledCanvas, tex: ledTex, t: 0, title: 'DUSTY', sub: 'ПЫЛЬНЫЕ ГАНТЕЛИ · ТЕХНО' };
+        const ledMat = new THREE.MeshBasicMaterial({ map: ledTex, fog: false });
+        const pont = std('#1c2433'), deck = std('#15151b'), desk = std('#26262e', { metalness: 0.3, roughness: 0.5 });
+        const banMat = new THREE.MeshBasicMaterial({ map: T.text('DUSTY RAVE', { bg: INK, fg: LIME, stripe: PINK, w: 512, h: 128 }) });
+        const laserMat = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+        const laserGeo = new THREE.BoxGeometry(0.035, 0.035, 30).translate(0, 0, -15);
+        for (const sg of sc.stages) {
+          const grp = new THREE.Group(); grp.position.set(sg.x, 0, Z(sg.z)); root.add(grp);
+          const R = { z: sg.z, main: false, grp, heads: [], lasers: [], strobes: [], sky: [], range: 240 };
+          grp.add(boxAt(unitBox, pont, -2.2, 3.4, -2.6, 0.45, -4.2, 4.2));
+          grp.add(boxAt(unitBox, deck, -1.8, 3.2, 0.45, 0.75, -3.8, 3.8));
+          // сцена развёрнута к набегающим бегунам
+          const set = new THREE.Group(); set.rotation.y = 0.6; grp.add(set);
+          set.add(boxAt(unitBox, desk, -1.3, -0.5, 0.75, 1.75, -1.3, 1.3));
+          for (const sz of [-0.9, 0.9]) set.add(boxAt(unitBox, deck, -1.2, -0.6, 1.75, 1.82, sz - 0.3, sz + 0.3));
+          const scr = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 2.7), ledMat); scr.position.set(1.4, 2.6, 0); scr.rotation.y = -PI / 2; set.add(scr);
+          for (const sz of [-3, 3]) set.add(boxAt(unitBox, truss, 1.75, 2.05, 0.75, 4.9, sz - 0.15, sz + 0.15));
+          set.add(boxAt(unitBox, truss, 1.7, 2.1, 4.8, 5.1, -3.2, 3.2));
+          const ban = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.75, 4.4), banMat); ban.position.set(1.62, 4.35, 0); set.add(ban);
+          for (const sz of [-3.6, 3.6]) set.add(boxAt(unitBox, deck, -1.1, 0, 0.75, 2.6, sz - 0.5, sz + 0.5)); // колонки
+          for (let i = 0; i < 4; i++) {
+            const pivot = new THREE.Group(); pivot.position.set(1.9, 4.75, -2.4 + i * 1.6); set.add(pivot);
+            pivot.add(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), truss));
+            const b = new THREE.Mesh(beamGeo(24, 1.7), additive(RAVE_COL[(i + sc.stages.indexOf(sg)) % RAVE_COL.length])); pivot.add(b);
+            R.heads.push({ pivot, beam: b, i: i + 2 });
+          }
+          for (let i = 0; i < 2; i++) {
+            const pivot = new THREE.Group(); pivot.position.set(1.6, 4.4, -1 + i * 2); set.add(pivot);
+            const ln = new THREE.Mesh(laserGeo, laserMat(i ? '#39ff6a' : '#ff2e93')); pivot.add(ln); R.lasers.push({ pivot, i: i * 3, mat: ln.material });
+          }
+          for (const sz of [-3, 3]) { const sp = new THREE.Sprite(strobeMat()); sp.scale.set(1.3, 1.3, 1); sp.position.set(1.9, 5.4, sz); set.add(sp); R.strobes.push(sp); }
+          R.led = state.zoneLed; R.ledShared = true;
+          state.raves.push(R);
+        }
+        // прожекторы на парапете — лучи в небо
+        const zc = (sc.zone.z0 + sc.zone.z1) / 2, zg = new THREE.Group(); zg.position.z = Z(zc); root.add(zg);
+        const RZ = { z: zc, main: false, grp: zg, heads: [], lasers: [], strobes: [], sky: [], range: (sc.zone.z1 - sc.zone.z0) / 2 + 200 };
+        for (let z = sc.zone.z0 + 8, k = 0; z < sc.zone.z1; z += 30, k++) {
+          const pivot = new THREE.Group(); pivot.position.set(6.55, 1.1, -(z - zc)); zg.add(pivot);
+          pivot.add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), truss));
+          const b = new THREE.Mesh(beamGeo(60, 2.2), additive(RAVE_COL[k % RAVE_COL.length], 0.3)); b.rotation.x = PI; pivot.add(b);
+          RZ.sky.push({ pivot, sx: k * 1.7 });
+        }
+        state.raves.push(RZ);
+        // светодиодная лента по парапету
+        const n = Math.floor((sc.zone.z1 - sc.zone.z0) / 1.2);
+        const strip = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.07, 0.9), new THREE.MeshBasicMaterial({ color: '#ffffff', fog: false }), n);
+        const mt = new THREE.Matrix4(), col = new THREE.Color('#ffffff');
+        for (let i = 0; i < n; i++) { mt.makeTranslation(6.55, 1.12, Z(sc.zone.z0 + i * 1.2)); strip.setMatrixAt(i, mt); strip.setColorAt(i, col); }
+        strip.frustumCulled = false; root.add(strip);
+        state.zoneStrip = { mesh: strip, n, z0: sc.zone.z0, z1: sc.zone.z1 };
+      }
     }
 
     /* ---- теплоходы ---- */
@@ -436,9 +494,10 @@
     place(bd.mgu, D.clamp(1 - Math.abs(km - 25) / 5, 0, 1), 170, 90);
     place(bd.kremlin, D.clamp((km - 35) / 3, 0, 1), -40, 70 * (1 + D.clamp((km - 35) / 7, 0, 1) * 1.2));
     if (st.balls) st.balls.forEach((b, i) => { b.position.y = 6.15 + Math.abs(Math.sin(t * 3 + i)) * 0.1; });
-    // рейв: лучи, лазеры и стробы в такт 128 BPM
-    const beat = t * 128 / 60, bi2 = Math.floor(beat), kick = Math.pow(1 - (beat % 1), 4);
+    // рейв: лучи, лазеры и стробы в такт музыке (D.BPM)
+    const beat = t * D.BPM / 60, bi2 = Math.floor(beat), kick = Math.pow(1 - (beat % 1), 4);
     const RAVE_COL = ['#ff2e93', '#6c2bd9', '#c8ff1a', '#21c6c6', '#ff7a1a'];
+    let zoneNear = false;
     for (const R of st.raves) {
       const near = Math.abs(R.z - g.pz) < R.range;
       R.grp.visible = near;
@@ -455,7 +514,18 @@
       }
       for (const s of R.sky) s.pivot.rotation.set(0.35 * Math.sin(t * 0.4 + s.sx), 0, 0.3 * Math.cos(t * 0.33 + s.sx));
       R.strobes.forEach((sp, i) => { sp.material.opacity = (bi2 % 8 === 7 || (bi2 + i) % 4 === 0) ? kick : 0; });
-      if (R.led && (R.led.t += 1) % 2 === 0) drawLed(R.led, t, beat, kick);
+      if (R.led && !R.ledShared && (R.led.t += 1) % 2 === 0) drawLed(R.led, t, beat, kick);
+      if (R.ledShared) zoneNear = true;
+    }
+    if (zoneNear && (st.zoneLed.t += 1) % 2 === 0) drawLed(st.zoneLed, t, beat, kick);
+    const zs = st.zoneStrip;
+    if (zs && g.pz > zs.z0 - 200 && g.pz < zs.z1 + 40) {
+      const c = zs.c || (zs.c = new THREE.Color()), lv = 0.35 + 0.65 * kick;
+      for (let i = 0; i < zs.n; i++) {
+        c.set(RAVE_COL[(Math.floor(i / 3) + (bi2 >> 1)) % RAVE_COL.length]).multiplyScalar((i + bi2) % 4 === 0 ? 1 : lv);
+        zs.mesh.setColorAt(i, c);
+      }
+      zs.mesh.instanceColor.needsUpdate = true;
     }
   };
 
@@ -475,9 +545,9 @@
     }
     x.font = '800 92px "Unbounded", "Arial Black", Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
     x.shadowColor = '#ff2e93'; x.shadowBlur = 18 + 30 * kick;
-    x.fillStyle = '#ffffff'; x.fillText('DJ KIM', w / 2, h * 0.38);
+    x.fillStyle = '#ffffff'; x.fillText(led.title || 'DJ KIM', w / 2, h * 0.38);
     x.shadowBlur = 0;
-    x.font = '700 30px "Golos Text", sans-serif'; x.fillStyle = '#c8ff1a'; x.fillText('DUSTY RAVE · 128 BPM', w / 2, h * 0.68);
+    x.font = '700 30px "Golos Text", sans-serif'; x.fillStyle = '#c8ff1a'; x.fillText(led.sub || 'DUSTY RAVE · ' + D.BPM + ' BPM', w / 2, h * 0.68);
     led.tex.needsUpdate = true;
   }
 
