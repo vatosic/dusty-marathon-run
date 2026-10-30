@@ -1022,10 +1022,10 @@
         case 'obs': at(o.x); if (o.type !== 'puddle') shadow(ctx, o.type === 'dog' ? 0.35 : 0.5); obstacleSprite(ctx, o, time); ctx.restore(); break;
         case 'rival': {
           if (dz < cam.back - 1.2) break; // догнанных почти у камеры не рисуем
-          at(o.x); ctx.globalAlpha = a * clamp((dz - (cam.back - 1.2)) / 1.5, 0, 1); shadow(ctx, 0.32);
+          at(o.x, o.y); ctx.globalAlpha = a * clamp((dz - (cam.back - 1.2)) / 1.5, 0, 1); shadow(ctx, 0.32);
           runnerBack(ctx, o.look, o.phase, null, { bib: true });
           ctx.restore();
-          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05, dz), s, name: o.star ? '★ ' + o.name : o.name, star: o.star, a, id: o.id });
+          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05 + (o.y || 0), dz), s, name: o.star ? '★ ' + o.name : o.name, star: o.star, a, id: o.id });
           break;
         }
         case 'pacer': {

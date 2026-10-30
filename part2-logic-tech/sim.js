@@ -343,7 +343,7 @@
     }
     return all.map((rv, i) => {
       const sl = slots[i], z0 = sl.z + (r() - 0.5) * 0.3, lx = laneX(r);
-      return Object.assign(rv, { z0, v: (L - z0) / rv.T, bumpT: 0, bumpDir: 1, lane: rivalLane ? Math.floor(r() * 3) : sl.lane, laneX: lx,
+      return Object.assign(rv, { z0, v: (L - z0) / rv.T, y: 0, lane: rivalLane ? Math.floor(r() * 3) : sl.lane, laneX: lx,
         x: rivalLane ? lx : LANES[sl.lane], z: z0, ahead: z0 > 0, passed: false, phase: r() * 6.28, dodge: 0 });
     });
   };
@@ -507,21 +507,21 @@
       if (dz > -12 && dz < 160) {
         rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
         if (g.rivalLane) { rv.x = rv.laneX; continue; } // своя дорожка: ни препятствий, ни игрока
-        // обход препятствий: ищем ряд впереди
-        let desired = rv.lane;
-        const row = D.rowNear(rows, rv.z, 1, 12);
-        if (row && row.block[desired]) {
-          // честность: не подрезаем игрока, который бежит прямо за соперником
-          const playerClose = dz > 0 && dz < 9;
-          const order = [desired - 1, desired + 1, desired - 2, desired + 2].filter((l) => l >= 0 && l < 3);
-          for (const l of order) if (!row.block[l] && !(playerClose && Math.abs(LANES[l] - g.px) < 0.8)) { desired = l; break; }
+        // весь забег — в своей полосе. Мимо препятствия и мимо игрока — только сдвиг к краю своей полосы,
+        // через фан-барьер и собаку — прыжок, по луже — насквозь
+        const base = LANES[rv.lane];
+        let off = 0, y = 0;
+        const row = D.rowNear(rows, rv.z, -1.1, 3);
+        if (row && row.block[rv.lane]) {
+          const ob = row.objs.find((o) => o.kind === 'obs' && (o.type === 'dog' ? rv.lane - o.a === 0 || rv.lane - o.a === 1 : D.hardLane(o) === rv.lane));
+          const u = (row.z - rv.z) / 1.1;
+          if (ob && (ob.type === 'fanbarrier' || ob.type === 'dog')) { if (Math.abs(u) < 1) y = 0.5 * (1 - u * u); }
+          else if (ob && ob.type !== 'puddle' && row.z - rv.z > -0.8) off = rv.lane === 0 ? -0.5 : rv.lane === 2 ? 0.5 : (rv.laneX > D.RIVAL_LANE.x ? 0.5 : -0.5);
         }
-        if (rv.bumpT > 0) rv.bumpT -= dt;
-        let target = LANES[desired] + (rv.bumpT > 0 ? rv.bumpDir * 0.7 : 0);
-        // соперник, догоняющий сзади, сам обходит игрока
-        if (dz < 0 && dz > -2.6 && rv.v > g.speed && Math.abs(target - g.px) < 0.9) target += rv.x >= g.px ? 0.8 : -0.8;
-        target = clamp(target, -2.2, 2.2);
-        rv.x += clamp(target - rv.x, -3.5 * dt, 3.5 * dt);
+        // догоняющий сзади обходит игрока у края своей полосы
+        if (dz < 1.5 && dz > -2.6 && rv.v > g.speed && Math.abs(base - g.px) < 0.9) off = base >= g.px ? 0.5 : -0.5;
+        rv.y = y;
+        rv.x += clamp(base + off - rv.x, -3 * dt, 3 * dt);
       }
     }
     // догнал бегуна в своей полосе и не обошёл — столкновение
@@ -529,7 +529,6 @@
       for (const rv of g.rivals) {
         const dz = rv.z - g.pz;
         if (dz > 0 && dz < 0.55 && Math.abs(rv.x - g.px) < 0.6 && g.y < 0.6 && g.speed > rv.v) {
-          rv.bumpT = 2.5; rv.bumpDir = rv.x >= g.px ? 1 : -1;
           hit(g, { type: 'runner', hit: false });
           break;
         }

@@ -326,7 +326,7 @@
     // на масс-старте в кадре много бегунов: рисуем ближайших 36, подписываем ближайших 12
     for (let i = 0; i < Math.min(36, vis.length); i++) {
       const rv = vis[i];
-      crowd.add({ x: rv.x, z: Z(rv.z) }, rv.look, (J) => D.Chars.poseRun(J, rv.phase, 0.8 + rv.v / 60, 0.12));
+      crowd.add({ x: rv.x, y: rv.y || 0, z: Z(rv.z) }, rv.look, (J) => D.Chars.poseRun(J, rv.phase, 0.8 + rv.v / 60, 0.12));
       const dz = rv.z - g.pz;
       if (i < 12 && dz > -0.5 && dz < 70) labels.push({ x: rv.x, y: 2.1, z: rv.z, name: rv.star ? '★ ' + rv.name : rv.name, star: rv.star, dz });
     }

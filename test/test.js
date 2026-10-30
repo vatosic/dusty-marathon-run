@@ -322,6 +322,19 @@ for (const mode of ['perfect', 'smart', 'passive']) {
   ok(g.total === 101 && g.finalPos >= 1 && g.finalPos <= 101, `звёзды не входят в место (${mode})`);
 }
 
+// соперники весь забег в своей полосе: сдвиг не дальше края полосы, полосу не меняют
+for (const mode of ['perfect', 'smart']) {
+  const g = D.newGame(D.clubParticipants(), mode === 'smart' ? 515 : 516);
+  const lane0 = new Map(g.rivals.map((rv) => [rv.id, rv.lane]));
+  let worst = 0, hops = 0, steps = 0;
+  while (!g.finished && steps < 60 * 900) {
+    bot(g, mode); D.update(g, 1 / 60); steps++; g.events.length = 0;
+    for (const rv of g.rivals) { worst = Math.max(worst, Math.abs(rv.x - LANES[rv.lane])); if (rv.y > 0.3) hops++; }
+  }
+  ok(g.rivals.every((rv) => rv.lane === lane0.get(rv.id)) && worst <= 0.5 + 1e-9, `соперники не меняют полосу (${mode}: отклонение ${worst.toFixed(2)})`);
+  ok(hops > 0, `соперники перепрыгивают барьеры и собак (${mode})`);
+}
+
 // тестовый режим: соперники на своей дорожке слева — не заходят в полосы игрока и не сталкиваются с ним
 {
   const lo = D.RIVAL_LANE.left, hi = -2.45;
