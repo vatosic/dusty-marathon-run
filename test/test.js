@@ -319,7 +319,7 @@ for (const mode of ['perfect', 'smart', 'passive']) {
     g.events.length = 0;
   }
   const behind = g.rivals.filter((rv) => rv.star && rv.z < D.WORLD_LEN).length;
-  ok(starEvents >= g.stats.stars && g.stats.stars === behind && (mode !== 'perfect' || behind >= 8), `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
+  ok(starEvents >= g.stats.stars && g.stats.stars === behind && (mode !== 'perfect' || behind >= 4), `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
   ok(g.total === 101 && g.finalPos >= 1 && g.finalPos <= 101, `звёзды не входят в место (${mode})`);
 }
 
