@@ -47,7 +47,7 @@
 
   // cad — насколько столкновение сбивает каденс; t — сколько секунд (по умолчанию D.HIT_T)
   D.OBST = {
-    puddle:       { label: 'ЛУЖА', pen: 5, cad: 10, h: 0.14, w: 1.3, jump: true },
+    puddle:       { label: 'ЛУЖА', pen: 5, cad: 20, h: 0.14, w: 1.3, jump: true },
     fanbarrier:   { label: 'ФАН-БАРЬЕР', pen: 8, cad: 50, h: 0.62, w: 1.3, jump: true },
     dog:          { label: 'СОБАКА', pen: 6, cad: 50, h: 0.55, w: 0.95, jump: true },
     photographer: { label: 'ФОТОГРАФ', pen: 7, cad: 50, h: 1.8, w: 0.7, jump: false },
@@ -323,7 +323,7 @@
   const RL_MIN = D.RIVAL_LANE.left + 0.15, RL_MAX = D.RIVAL_LANE.left + 1.35; // центры бегунов на дорожке соперников
   // Общий масс-старт: все в коридоре перед стартовой аркой — впереди звёзды, за ними клуб по ожидаемому времени,
   // игрок в средней полосе за самыми быстрыми. Темп ровный: клуб равномерно финиширует за 2:30–4:00 (D.CLUB_T),
-  // звёзды — быстрее, за 2:05–2:29 (D.STARS_T); в место и итоговое время звёзды не входят.
+  // звёзды — около идеального времени героя, 2:06–2:13 (D.STARS_T); в место и итоговое время звёзды не входят.
   const starLook = (r, st) => ({ skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
     shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false });
   D.initRivals = function (participants, seed, rivalLane) {
@@ -417,7 +417,8 @@
 
   function hit(g, o) {
     const def = D.OBST[o.type];
-    if (g.invulnT > 0) return;
+    // неуязвимость после столкновения 1 с; лужа в следующем ряду (через 0,4 с) уже засчитывается
+    if (g.invulnT > (o.type === 'puddle' ? 0.6 : 0)) return;
     if (g.pacerT > 0) {
       o.hit = true; g.invulnT = 0.6; g.stats.shield++;
       g.events.push({ kind: 'shield', type: o.type, title: 'ПЕЙСЕР ЗАЩИТИЛ', sub: def.label.toLowerCase() + ' без штрафа', good: true });
