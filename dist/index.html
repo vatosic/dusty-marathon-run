@@ -397,7 +397,17 @@ details.part[open] summary::after { content: " ▴"; }
   D.TRACK_KM = [22.6, 27.0]; // Лужники: беговое покрытие вместо асфальта (между мостами)
   D.KM_MARKS = [5, 10, 15, 20, 25, 30, 35, 40];
 
-  D.SIGNS = ['ДАВАЙ, ДАСТИ!', 'ПЫЛЬНЫЕ ГАНТЕЛИ', 'DUSTY', 'ТЫ УЖЕ КРАСАВЧИК', 'ГЕЛЬ СЪЕЛ?', 'БЕГИ, МЫ В ТЕБЯ ВЕРИМ', 'DUSTY DUMBBELLS', 'ЕЩЁ ЧУТЬ-ЧУТЬ'];
+  D.SIGNS = ['ДАВАЙ, ДАСТИ!', 'ПЫЛЬНЫЕ ГАНТЕЛИ', 'DUSTY', 'ТЫ УЖЕ КРАСАВЧИК', 'ГЕЛЬ СЪЕЛ?', 'БЕГИ, МЫ В ТЕБЯ ВЕРИМ', 'DUSTY DUMBBELLS', 'ЕЩЁ ЧУТЬ-ЧУТЬ',
+    'СОЮЗ ЛЮБИТЕЛЕЙ БЕГА', 'СЛБ', 'СОЮЗ ЛЮБИТЕЛЕЙ БЕГА ❤ ПЫЛЬНЫЕ ГАНТЕЛИ', 'ПЫЛЬНЫЕ ГАНТЕЛИ — СИЛА', 'ГАНТЕЛИ НЕ ПЫЛЯТСЯ, ОНИ БЕГУТ',
+    'НЕДЕЛИН, УХОДИ КО МНЕ ОТ ТУКИТУК', 'ТУКИТУК, ВЕРНИ НЕДЕЛИНА', 'СТЕНА? КАКАЯ СТЕНА?', 'ПОСЛЕ ФИНИША — ПУЭР', 'ТВОЙ ПЕЙС — МОЙ ПЕЙС',
+    'КТО НЕ БЕЖИТ — ТОТ ПЫЛИТСЯ'];
+  // Плакат болельщика — только оформление, на правила не влияет: к плакатам из симуляции
+  // добавляем ещё ~четверть болельщиков с надписью (детерминированно по фазе, без кадрового мерцания)
+  D.fanSign = function (f) {
+    if (f.sign) return f.sign;
+    const h = Math.abs(Math.sin(f.phase * 127.1 + f.z * 0.311) * 43758.5453) % 1;
+    return h < 0.3 ? D.SIGNS[Math.floor(h / 0.3 * D.SIGNS.length)] : null;
+  };
 
   /* ---------------- Участники ---------------- */
 
@@ -1881,8 +1891,12 @@ details.part[open] summary::after { content: " ▴"; }
   function obstacleSprite(c, o, t) {
     switch (o.type) {
       case 'puddle': {
-        c.fillStyle = 'rgba(52,104,150,0.85)'; ell(c, 0, -0.02, 0.68, 0.17); c.fill();
-        c.fillStyle = 'rgba(190,225,255,0.65)'; ell(c, -0.15, -0.05, 0.25, 0.04); c.fill();
+        // тёмная лужа с чёрной «подсветкой» (столб и ореол), как свечение у ништяков, только наоборот
+        const gr = c.createLinearGradient(0, 0, 0, -1.6); gr.addColorStop(0, 'rgba(0,0,0,0.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = gr; c.fillRect(-0.4, -1.6, 0.8, 1.6);
+        c.fillStyle = 'rgba(5,6,10,0.5)'; ell(c, 0, -0.02, 0.82, 0.22); c.fill();
+        c.fillStyle = 'rgba(13,20,32,0.95)'; ell(c, 0, -0.02, 0.68, 0.17); c.fill();
+        c.fillStyle = 'rgba(140,165,200,0.45)'; ell(c, -0.15, -0.05, 0.25, 0.04); c.fill();
         const rp = reduced ? 0.3 : (t * 0.8 + o.z) % 1;
         c.strokeStyle = 'rgba(255,255,255,' + (0.5 * (1 - rp)) + ')'; c.lineWidth = 0.025; ell(c, 0.2, -0.02, 0.1 + rp * 0.3, 0.03 + rp * 0.07); c.stroke();
         break;
@@ -1947,9 +1961,17 @@ details.part[open] summary::after { content: " ▴"; }
   function sign(c, text, color) {
     c.fillStyle = '#6b5a4a'; c.fillRect(-0.03, -2.6, 0.06, 1.2);
     c.font = '800 0.2px "Unbounded", sans-serif';
-    const w = Math.max(0.9, c.measureText(text).width + 0.2);
+    let lines = [text];
+    if (text.length > 14 && text.indexOf(' ') > 0) { // длинный плакат — в две строки
+      let best = -1;
+      for (let i = 0; i < text.length; i++) if (text[i] === ' ' && (best < 0 || Math.abs(i - text.length / 2) < Math.abs(best - text.length / 2))) best = i;
+      lines = [text.slice(0, best), text.slice(best + 1)];
+      c.font = '800 0.15px "Unbounded", sans-serif';
+    }
+    const w = Math.max(0.9, Math.max.apply(null, lines.map((l) => c.measureText(l).width)) + 0.2);
     c.fillStyle = color || '#fff'; c.fillRect(-w / 2, -2.75, w, 0.42);
-    c.fillStyle = color === PINK ? '#fff' : INK; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, 0, -2.54);
+    c.fillStyle = color === PINK ? '#fff' : INK; c.textAlign = 'center'; c.textBaseline = 'middle';
+    lines.forEach((l, i) => c.fillText(l, 0, -2.54 + (i - (lines.length - 1) / 2) * 0.16));
     c.textBaseline = 'alphabetic';
   }
   function flag(c, t) {
@@ -2530,8 +2552,9 @@ details.part[open] summary::after { content: " ▴"; }
         case 'boat': at(o.x, -2.5); ctx.scale(Math.sign(o.v) || 1, 1); boat(ctx, o); ctx.restore(); break;
         case 'fan': {
           at(o.x); shadow(ctx, 0.3);
-          personFront(ctx, o.look, o.sign ? 'sign' : o.pose, time, o.phase);
-          if (o.sign) sign(ctx, o.sign, (o.phase * 10 | 0) % 3 === 0 ? PINK : (o.phase * 10 | 0) % 3 === 1 ? LIME : '#fff');
+          const sg = D.fanSign(o);
+          personFront(ctx, o.look, sg ? 'sign' : o.pose, time, o.phase);
+          if (sg) sign(ctx, sg, (o.phase * 10 | 0) % 3 === 0 ? PINK : (o.phase * 10 | 0) % 3 === 1 ? LIME : '#fff');
           else if (o.flag) flag(ctx, time + o.phase);
           ctx.restore(); break;
         }
@@ -2640,30 +2663,25 @@ details.part[open] summary::after { content: " ▴"; }
   }
 
   function drawLabels(labels) {
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+    // как в Zwift: ровная строка на тёмной полупрозрачной плашке
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     labels.sort((a, b) => b.s - a.s); // ближние важнее
     const boxes = [];
     for (const lb of labels) {
-      const size = clamp(lb.s * 0.3, 10, 17);
+      const size = clamp(lb.s * 0.27, 9, 15);
       ctx.font = '700 ' + size + 'px "Golos Text", system-ui, sans-serif';
-      const w = ctx.measureText(lb.name).width;
-      const box = { x0: lb.x - w / 2 - 2, x1: lb.x + w / 2 + 2, y0: lb.y - size - 2, y1: lb.y + 4 };
+      const w = ctx.measureText(lb.name).width, padX = size * 0.55, bh = size * 1.55;
+      const box = { x0: lb.x - w / 2 - padX, x1: lb.x + w / 2 + padX, y0: lb.y - bh, y1: lb.y };
       if (boxes.some((b) => b.x0 < box.x1 && b.x1 > box.x0 && b.y0 < box.y1 && b.y1 > box.y0)) continue;
       boxes.push(box);
-      let x = lb.x - w / 2;
-      const amp = reduced ? 0 : size * 0.12;
       ctx.globalAlpha = lb.a;
-      ctx.lineWidth = Math.max(2.5, size * 0.24);
-      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
-      let i = 0;
-      for (const ch of lb.name) {
-        const cw = ctx.measureText(ch).width;
-        const y = lb.y + Math.sin(time * 4 + i * 0.55) * amp;
-        ctx.strokeText(ch, x, y); ctx.fillText(ch, x, y);
-        x += cw; i++;
-      }
+      ctx.fillStyle = 'rgba(14,10,24,0.62)';
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(box.x0, box.y0, box.x1 - box.x0, bh, bh / 2) : ctx.rect(box.x0, box.y0, box.x1 - box.x0, bh); ctx.fill();
+      if (lb.star) { ctx.fillStyle = '#ffd23f'; ctx.fillRect(box.x0 + bh * 0.3, box.y1 - 2, box.x1 - box.x0 - bh * 0.6, 2); } // звёзды бега — золотом
+      ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff';
+      ctx.fillText(lb.name, lb.x, lb.y - bh / 2 + 0.5);
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
 
   function drawEffects(g, dt) {
@@ -2883,11 +2901,20 @@ details.part[open] summary::after { content: " ▴"; }
     if (opts.bg !== 'none') { x.fillStyle = opts.bg || '#ffffff'; x.fillRect(0, 0, w, h); }
     if (opts.stripe) { x.fillStyle = opts.stripe; x.fillRect(0, h * 0.82, w, h * 0.1); }
     if (opts.checker) { for (let i = 0; i < w / 16; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#fff' : INK; x.fillRect(i * 16, h - 32 + j * 16, 16, 16); } }
-    let size = opts.size || h * 0.55;
+    // wrap: длинную надпись (плакаты болельщиков) переносим на две строки по ближайшему к середине пробелу
+    let lines = [text];
+    if (opts.wrap && text.length > 14 && text.indexOf(' ') > 0) {
+      let best = -1;
+      for (let i = 0; i < text.length; i++) if (text[i] === ' ' && (best < 0 || Math.abs(i - text.length / 2) < Math.abs(best - text.length / 2))) best = i;
+      lines = [text.slice(0, best), text.slice(best + 1)];
+    }
+    let size = opts.size || h * (lines.length > 1 ? 0.4 : 0.55);
+    const widest = () => Math.max.apply(null, lines.map((l) => x.measureText(l).width));
     x.font = '800 ' + size + 'px ' + FONT;
-    while (x.measureText(text).width > w * 0.92 && size > 8) { size -= 2; x.font = '800 ' + size + 'px ' + FONT; }
+    while (widest() > w * 0.92 && size > 8) { size -= 2; x.font = '800 ' + size + 'px ' + FONT; }
     x.fillStyle = opts.fg || INK; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText(text, w / 2, opts.checker ? h * 0.38 : h / 2);
+    const cy = opts.checker ? h * 0.38 : h / 2;
+    lines.forEach((l, i) => x.fillText(l, w / 2, cy + (i - (lines.length - 1) / 2) * size * 1.05));
     const t = tex(c); cache.set(key, t); return t;
   };
 
@@ -4508,9 +4535,15 @@ details.part[open] summary::after { content: " ▴"; }
   function makeObstacle(type) {
     const grp = new THREE.Group();
     if (type === 'puddle') {
-      const p = new THREE.Mesh(new THREE.CircleGeometry(1, 28).rotateX(-PI / 2), new THREE.MeshPhongMaterial({ color: '#3c6f96', shininess: 120, specular: '#ffffff', transparent: true, opacity: 0.85 }));
+      const p = new THREE.Mesh(new THREE.CircleGeometry(1, 28).rotateX(-PI / 2), new THREE.MeshPhongMaterial({ color: '#0d1420', shininess: 140, specular: '#8fa6c8', transparent: true, opacity: 0.92 }));
       p.scale.set(0.7, 1, 0.24); p.position.y = 0.015; p.receiveShadow = true; grp.add(p);
-      const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.4, depthWrite: false }));
+      // чёрная «подсветка» как у ништяков: тёмный столб и тёмное кольцо — видно издалека, что это помеха
+      const dark = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 2.2, 14, 1, true).translate(0, 1.1, 0),
+        new THREE.MeshBasicMaterial({ map: D.Tex.glow('#000000'), color: '#000000', transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+      dark.scale.set(1, 1, 0.55); grp.add(dark);
+      const halo = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.18, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#05060a', transparent: true, opacity: 0.55, depthWrite: false }));
+      halo.scale.set(0.7, 1, 0.24); halo.position.y = 0.012; grp.add(halo);
+      const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#9fb4d6', transparent: true, opacity: 0.4, depthWrite: false }));
       r.position.y = 0.02; grp.add(r); grp.userData.ripple = r;
     } else if (type === 'fanbarrier') {
       // металлический фан-барьер с баннером клуба
@@ -4682,15 +4715,15 @@ details.part[open] summary::after { content: " ▴"; }
     for (let i = lo; i < sc.fans.length && sc.fans[i].z < zTo && !crowd.full(); i++) {
       const f = sc.fans[i];
       if (f.zone && f.z > g.pz + 110) continue; // танцпол Лужников — только ближняя часть
-      const pose = f.sign ? 'sign' : f.pose;
+      const sign = D.fanSign(f), pose = sign ? 'sign' : f.pose;
       const ry = 2.5 + (f.phase - 3) * 0.08;
       crowd.add({ x: f.x, z: Z(f.z), ry }, f.look, (J) => D.Chars.posePerson(J, pose, time, f.phase));
-      if (f.sign && f.z < g.pz + 110) {
+      if (sign && f.z < g.pz + 110) {
         const s = take('sign', () => makeObstacle('sign'));
-        const tex = D.Tex.text(f.sign, { bg: (f.phase * 10 | 0) % 3 === 0 ? PINK : (f.phase * 10 | 0) % 3 === 1 ? LIME : '#ffffff', fg: (f.phase * 10 | 0) % 3 === 0 ? '#ffffff' : INK, w: 512, h: 184 });
+        const tex = D.Tex.text(sign, { wrap: true, bg: (f.phase * 10 | 0) % 3 === 0 ? PINK : (f.phase * 10 | 0) % 3 === 1 ? LIME : '#ffffff', fg: (f.phase * 10 | 0) % 3 === 0 ? '#ffffff' : INK, w: 512, h: 184 });
         if (s.userData.plane.material.map !== tex) { s.userData.plane.material.map = tex; s.userData.plane.material.needsUpdate = true; }
         s.position.set(f.x - 0.05, 2.05 + (f.pose === 'jump' ? 0 : 0), Z(f.z) + 0.05); s.rotation.y = -0.64;
-      } else if (f.flag && f.z < g.pz + 110) {
+      } else if (f.flag && !sign && f.z < g.pz + 110) {
         const fl = take('flag', () => makeObstacle('flag'));
         fl.position.set(f.x + 0.3, 0, Z(f.z)); fl.rotation.y = -0.6;
         if (!reduced) fl.userData.cloth.rotation.y = Math.sin(time * 3 + f.phase) * 0.25;
@@ -4779,28 +4812,27 @@ details.part[open] summary::after { content: " ▴"; }
     const c = octx;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, W, H);
-    // имена: без плашек, лёгкая волна, ближние приоритетнее
-    c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.lineJoin = 'round';
+    // имена как в Zwift: ровная строка на тёмной полупрозрачной плашке, ближние приоритетнее
+    c.textAlign = 'center'; c.textBaseline = 'middle';
     labels.sort((a, b) => a.dz - b.dz);
     const boxes = [];
     for (const lb of labels) {
       const p = project(lb.x, lb.y, lb.z); if (!p) continue;
       const dist = lb.z - (g.pz - camState.back);
-      const size = clamp(H * 0.62 / dist * 0.55, 10, 17);
+      const size = clamp(H * 0.62 / dist * 0.5, 9, 15);
       c.font = '700 ' + size + 'px "Golos Text", system-ui, sans-serif';
-      const w = c.measureText(lb.name).width;
-      const box = { x0: p.x - w / 2 - 2, x1: p.x + w / 2 + 2, y0: p.y - size - 2, y1: p.y + 4 };
+      const w = c.measureText(lb.name).width, padX = size * 0.55, bh = size * 1.55;
+      const box = { x0: p.x - w / 2 - padX, x1: p.x + w / 2 + padX, y0: p.y - bh, y1: p.y };
       if (boxes.some((b) => b.x0 < box.x1 && b.x1 > box.x0 && b.y0 < box.y1 && b.y1 > box.y0)) continue;
       boxes.push(box);
       c.globalAlpha = clamp((70 - lb.dz) / 20, 0, 1);
-      c.lineWidth = Math.max(2.5, size * 0.24); c.strokeStyle = 'rgba(30,11,46,0.85)'; c.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
-      let x = p.x - w / 2, i = 0;
-      const amp = reduced ? 0 : size * 0.12;
-      for (const ch of lb.name) {
-        const cw = c.measureText(ch).width, y = p.y + Math.sin(time * 4 + i * 0.55) * amp;
-        c.strokeText(ch, x, y); c.fillText(ch, x, y); x += cw; i++;
-      }
+      c.fillStyle = 'rgba(14,10,24,0.62)';
+      c.beginPath(); c.roundRect ? c.roundRect(box.x0, box.y0, box.x1 - box.x0, bh, bh / 2) : c.rect(box.x0, box.y0, box.x1 - box.x0, bh); c.fill();
+      if (lb.star) { c.fillStyle = '#ffd23f'; c.fillRect(box.x0 + bh * 0.3, box.y1 - 2, box.x1 - box.x0 - bh * 0.6, 2); } // звёзды бега — золотом
+      c.fillStyle = lb.star ? '#ffd23f' : '#ffffff';
+      c.fillText(lb.name, p.x, p.y - bh / 2 + 0.5);
     }
+    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     c.globalAlpha = 1;
     const ps = project(g.px, g.y + 1.2, g.pz);
     R.playerScreen = ps;

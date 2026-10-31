@@ -155,11 +155,20 @@
     if (opts.bg !== 'none') { x.fillStyle = opts.bg || '#ffffff'; x.fillRect(0, 0, w, h); }
     if (opts.stripe) { x.fillStyle = opts.stripe; x.fillRect(0, h * 0.82, w, h * 0.1); }
     if (opts.checker) { for (let i = 0; i < w / 16; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#fff' : INK; x.fillRect(i * 16, h - 32 + j * 16, 16, 16); } }
-    let size = opts.size || h * 0.55;
+    // wrap: длинную надпись (плакаты болельщиков) переносим на две строки по ближайшему к середине пробелу
+    let lines = [text];
+    if (opts.wrap && text.length > 14 && text.indexOf(' ') > 0) {
+      let best = -1;
+      for (let i = 0; i < text.length; i++) if (text[i] === ' ' && (best < 0 || Math.abs(i - text.length / 2) < Math.abs(best - text.length / 2))) best = i;
+      lines = [text.slice(0, best), text.slice(best + 1)];
+    }
+    let size = opts.size || h * (lines.length > 1 ? 0.4 : 0.55);
+    const widest = () => Math.max.apply(null, lines.map((l) => x.measureText(l).width));
     x.font = '800 ' + size + 'px ' + FONT;
-    while (x.measureText(text).width > w * 0.92 && size > 8) { size -= 2; x.font = '800 ' + size + 'px ' + FONT; }
+    while (widest() > w * 0.92 && size > 8) { size -= 2; x.font = '800 ' + size + 'px ' + FONT; }
     x.fillStyle = opts.fg || INK; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText(text, w / 2, opts.checker ? h * 0.38 : h / 2);
+    const cy = opts.checker ? h * 0.38 : h / 2;
+    lines.forEach((l, i) => x.fillText(l, w / 2, cy + (i - (lines.length - 1) / 2) * size * 1.05));
     const t = tex(c); cache.set(key, t); return t;
   };
 
