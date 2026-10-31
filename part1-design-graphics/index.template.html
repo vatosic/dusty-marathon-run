@@ -88,9 +88,6 @@ body.playing #hud { display: flex; }
   92% { opacity: 0.95; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.22); }
   100% { opacity: 0; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.2); }
 }
-.opt { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.opt input { width: 20px; height: 20px; accent-color: var(--lime); flex-shrink: 0; }
-.opt .beta { font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: var(--lime); color: var(--ink); }
 .warn.show { display: block; }
 
 /* ---------- управление ---------- */
@@ -261,7 +258,6 @@ details.part[open] summary::after { content: " ▴"; }
       <button class="btn-main" id="btnStart">На старт</button>
       <button class="btn-sec" id="btnSoundStart" aria-pressed="false"></button>
     </div>
-    <label class="opt" for="optLane"><input type="checkbox" id="optLane"><span>Соперники бегут по своей дорожке слева</span><em class="beta">тест</em></label>
     <details class="part" id="partBox">
       <summary id="partSummary">Соперники</summary>
       <p id="partStatus"></p>

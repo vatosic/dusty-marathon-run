@@ -104,7 +104,7 @@ ok(D.findDistrict(6.9) === 0 && D.findDistrict(7) === 1 && D.findDistrict(24) ==
   ok(!club.some((p) => /EVENT/i.test(p.name)), 'клуб: служебный аккаунт исключён');
   ok(D.STARS.length === 20 && new Set(D.STARS.map((st) => st.name)).size === 20 && D.STARS.every((st) => st.tag && ['sprint', 'mid', 'long'].includes(st.kind)), 'звёзды: 20 с подписями');
   // масс-старт: все в коридоре перед аркой, клуб равномерно 2:30–4:00, звёзды быстрее и впереди
-  for (const [seed, lane] of [[3, false], [4, false], [5, true]]) {
+  for (const [seed, lane] of [[3, true], [4, true], [5, false]]) {
     const rv = D.initRivals(club, seed, lane), cl = rv.filter((x) => !x.star), st = rv.filter((x) => x.star);
     const L = D.WORLD_LEN, tag = `(сид ${seed}${lane ? ', своя дорожка' : ''})`;
     ok(cl.length === 100 && st.length === 20, 'масс-старт: 100 участников и 20 звёзд ' + tag);
@@ -115,7 +115,8 @@ ok(D.findDistrict(6.9) === 0 && D.findDistrict(7) === 1 && D.findDistrict(24) ==
     ok(buckets.every((b) => b >= 15 && b <= 18), `клуб равномерно по 15 минутам: ${buckets} ` + tag);
     ok(Math.min(...st.map((x) => x.z0)) > Math.max(...cl.map((x) => x.z0)) - 0.31, 'звёзды стоят впереди клуба ' + tag);
     ok(rv.every((x) => Math.abs(D.rivalZ(x, x.T) - L) < 1e-6 && D.rivalZ(x, x.T * 0.99) < L), 'каждый финиширует ровно в своё время ' + tag);
-    if (!lane) ok(!rv.some((x) => Math.abs(x.z0) < 0.8 && Math.abs(x.x) < 0.6), 'место игрока на старте свободно ' + tag);
+    ok(!rv.some((x) => Math.abs(x.z0) < (lane ? 2.4 : 0.8) && Math.abs(x.x) < 0.6), 'место игрока на старте свободно ' + tag);
+    if (lane) ok(!rv.some((x) => Math.abs(x.z0) < 2.4 && x.x0 > -0.6) && rv.every((x) => x.laneX >= D.RIVAL_LANE.left && x.laneX <= -2.45) && rv.some((x) => x.x0 > 1), 'старт на всю ширину, рядом с игроком пусто, все сбегают на свою дорожку ' + tag);
   }
 }
 
@@ -137,7 +138,7 @@ for (const n of [0, 1, 5, 100]) {
   const g = D.newGame(D.demoParticipants().slice(0, n), 42);
   D.update(g, 0.016);
   const ahead = g.rivals.filter((rv) => !rv.star && rv.z > g.pz).length;
-  ok(g.position === ahead + 1 && g.total === n + 1 && (n < 15 || ahead > 0 && ahead < n / 4), `на старте ${ahead + 1} из ${n + 1}`);
+  ok(g.position === ahead + 1 && g.total === n + 1 && (n < 15 || ahead > 0 && ahead < n / 3), `на старте ${ahead + 1} из ${n + 1}`);
 }
 
 // 5. Запасы, каденс, столкновения, прыжок, пейсер, бустеры
@@ -324,7 +325,7 @@ for (const mode of ['perfect', 'smart', 'passive']) {
 
 // соперники весь забег в своей полосе: сдвиг не дальше края полосы, полосу не меняют
 for (const mode of ['perfect', 'smart']) {
-  const g = D.newGame(D.clubParticipants(), mode === 'smart' ? 515 : 516);
+  const g = D.newGame(D.clubParticipants(), mode === 'smart' ? 515 : 516, { rivalLane: false });
   const lane0 = new Map(g.rivals.map((rv) => [rv.id, rv.lane]));
   let worst = 0, hops = 0, steps = 0;
   while (!g.finished && steps < 60 * 900) {
@@ -345,11 +346,30 @@ for (const mode of ['perfect', 'smart']) {
     let outside = 0, steps = 0;
     while (!g.finished && steps < 60 * 900) {
       bot(g, mode); D.update(g, 1 / 60); steps++; g.events.length = 0;
-      if (steps % 30 === 0) for (const rv of g.rivals) { const dz = rv.z - g.pz; if (dz > -12 && dz < 170 && (rv.x < lo || rv.x > hi)) outside++; }
+      if (steps % 30 === 0 && g.t > 3) for (const rv of g.rivals) { const dz = rv.z - g.pz; if (dz > -12 && dz < 170 && (rv.x < lo || rv.x > hi)) outside++; }
     }
     ok(outside === 0, `дорожка соперников: никто не выбегает в полосы игрока (${mode})`);
     ok(!g.stats.hits.runner, `дорожка соперников: столкновений с бегунами нет (${mode})`);
     ok(g.rivals.filter((rv) => rv.star).length === D.STARS.length, `дорожка соперников: звёзды тоже на ней (${mode})`);
+  }
+  // игрок на дорожке соперников: туда можно уйти, соперники с неё не сходят и обходят игрока у края
+  {
+    const g = D.newGame(D.clubParticipants(), 4242);
+    D.act(g, 'left'); D.act(g, 'left'); D.act(g, 'left');
+    let steps = 0, outside = 0, overlap = 0;
+    while (!g.finished && steps < 60 * 120) {
+      D.update(g, 1 / 60); steps++; g.events.length = 0;
+      if (g.t > 3) for (const rv of g.rivals) {
+        if (rv.x < lo - 1e-9 || rv.x > hi + 1e-9) outside++;
+        if (Math.abs(rv.z - g.pz) < 0.3 && Math.abs(rv.x - g.px) < 0.45 && rv.v > g.speed) overlap++;
+      }
+    }
+    ok(g.lane === -1 && Math.abs(g.px - D.RIVAL_LANE.x) < 1e-6, 'игрок может бежать по дорожке соперников');
+    ok(outside === 0 && overlap === 0, `соперники с дорожки не сходят и обходят игрока (${outside}/${overlap})`);
+  }
+  {
+    const g = D.newGame([], 1, { rivalLane: false }); D.act(g, 'left'); D.act(g, 'left');
+    ok(g.lane === 0, 'в прежнем режиме левее полосы 0 не уйти');
   }
   for (let s = 1; s <= 20; s++) {
     const g = D.newGame(D.demoParticipants(), s * 1013, { rivalLane: true });

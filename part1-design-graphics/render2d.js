@@ -776,7 +776,11 @@
       for (const lx of [-2.28, -0.725, 0.725, 2.28]) band(lx - 0.03, lx + 0.03, 0, ta, Math.min(tb, cam.z + 160));
       ctx.fill();
     }
-    if (g.rivalLane) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); band(-2.52, -2.38, 0, zn, Math.min(zf, cam.z + 160)); ctx.fill(); }
+    if (g.rivalLane) { // прерывистая линия у дорожки соперников
+      ctx.fillStyle = '#ffffff'; ctx.beginPath();
+      for (let z = Math.floor(zn / 6) * 6; z < Math.min(zf, cam.z + 160); z += 6) band(-2.52, -2.38, 0, Math.max(zn, z), z + 3);
+      ctx.fill();
+    }
     // гранитный парапет
     ctx.fillStyle = '#8c7f78'; ctx.beginPath(); vband(6.2, 0, 1.0, zn, zf); ctx.fill();
     ctx.fillStyle = '#c0b4aa'; ctx.beginPath(); band(6.2, 6.9, 1.0, zn, zf); ctx.fill();

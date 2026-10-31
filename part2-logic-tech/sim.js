@@ -195,7 +195,7 @@
 
   /* ---------------- Декорации ---------------- */
   D.buildScenery = function (seed, opts) {
-    const rivalLane = !!(opts && opts.rivalLane); // слева от дороги — дорожка соперников: деревья и фонари отходят
+    const rivalLane = !(opts && opts.rivalLane === false); // слева от дороги — дорожка соперников: деревья и фонари отходят
     const r = mulberry32(seed ^ 0x9e3779b9);
     const kz = D.kmToZ, km = D.zToKm;
     const sc = { buildings: [], trees: [], lamps: [], fans: [], boats: [], bridges: [], landmarks: [], walkers: [], towers: [], posts: [] };
@@ -320,6 +320,7 @@
   /* ---------------- Соперники ---------------- */
   // место соперника на своей дорожке: постоянный сдвиг, чтобы шли не гуськом, а по двое
   const laneX = (r) => D.RIVAL_LANE.x + (r() - 0.5) * D.RIVAL_LANE.spread;
+  const RL_MIN = D.RIVAL_LANE.left + 0.15, RL_MAX = D.RIVAL_LANE.left + 1.35; // центры бегунов на дорожке соперников
   // Общий масс-старт: все в коридоре перед стартовой аркой — впереди звёзды, за ними клуб по ожидаемому времени,
   // игрок в средней полосе за самыми быстрыми. Темп ровный: клуб равномерно финиширует за 2:30–4:00 (D.CLUB_T),
   // звёзды — быстрее, за 2:05–2:29 (D.STARS_T); в место и итоговое время звёзды не входят.
@@ -334,25 +335,31 @@
     const stars = shuffle(r, D.STARS.slice()).map((st, k) => ({ id: 'star-' + (k + 1), name: st.name, tag: st.tag, star: true, look: starLook(r, st) }));
     strat(stars.length, D.STARS_T).forEach((T, i) => { stars[i].T = T; });
     const all = stars.sort((a, b) => a.T - b.T).concat(club.sort((a, b) => a.T - b.T));
-    // ряды по 3 полосы (на своей дорожке — по двое); в ряду игрока (z = 0) средняя полоса — его
-    const per = rivalLane ? 2 : 3, gap = rivalLane ? 0.9 : 1.25, front = D.START_Z - 1.5;
-    const slots = [];
+    // ряды на всю ширину дороги: две колонки на дорожке соперников и три полосы. С дорожкой соперников рядом с игроком
+    // (его полоса и правее) пусто — после старта все сбегают влево и пересекают его полосу только впереди или позади.
+    // Без неё — три полосы, свободно только место игрока
+    const cols = rivalLane ? [D.RIVAL_LANE.x - 0.35, D.RIVAL_LANE.x + 0.35, ...LANES] : LANES;
+    const gap = 1.25, front = D.START_Z - 1.5, slots = [];
     for (let k = 0; slots.length < all.length; k++) {
       const z = front - k * gap;
-      for (let l = 0; l < per; l++) if (rivalLane || Math.abs(z) > 0.01 || l !== 1) slots.push({ z, lane: l });
+      cols.forEach((x, l) => { if (rivalLane ? x < LANES[1] - 0.01 || Math.abs(z) > 2.6 : x !== LANES[1] || Math.abs(z) > 0.01) slots.push({ z, x, lane: l }); });
     }
     return all.map((rv, i) => {
-      const sl = slots[i], z0 = sl.z + (r() - 0.5) * 0.3, lx = laneX(r);
-      return Object.assign(rv, { z0, v: (L - z0) / rv.T, y: 0, lane: rivalLane ? Math.floor(r() * 3) : sl.lane, laneX: lx,
-        x: rivalLane ? lx : LANES[sl.lane], z: z0, ahead: z0 > 0, passed: false, phase: r() * 6.28, dodge: 0 });
+      const sl = slots[i], z0 = sl.z + (r() - 0.5) * 0.3, onLane = sl.x < D.RIVAL_LANE.left + 1.5;
+      const lx = onLane ? sl.x + (r() - 0.5) * 0.2 : laneX(r);
+      return Object.assign(rv, { z0, v: (L - z0) / (rv.T - TAU), y: 0, lane: rivalLane ? Math.floor(r() * 3) : sl.lane, laneX: lx,
+        x0: sl.x, fd: 0.1 + r() * 0.6, fdur: 0.6 + Math.abs(lx - sl.x) * 0.35, x: sl.x, z: z0, ahead: z0 > 0, passed: false, phase: r() * 6.28, dodge: 0 });
     });
   };
-  D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * t);
+  // все разгоняются со старта, как игрок (за ~1/3 с), и финишируют ровно через T
+  const TAU = 1 / 3;
+  D.rivalZ = (rv, t) => Math.min(L, rv.z0 + rv.v * (t - TAU + TAU * Math.exp(-t / TAU)));
 
   /* ---------------- Состояние забега ---------------- */
-  // opts.rivalLane — тестовый режим: соперники на отдельной дорожке слева
+  // соперники бегут по своей дорожке слева (игрок может на неё заходить); opts.rivalLane = false — прежний режим,
+  // где соперники бегут по полосам игрока
   D.newGame = function (participants, seed, opts) {
-    const rivalLane = !!(opts && opts.rivalLane);
+    const rivalLane = !(opts && opts.rivalLane === false);
     seed = seed >>> 0;
     const plan = D.buildPlan(seed), rivals = D.initRivals(participants, seed, rivalLane);
     return {
@@ -375,7 +382,7 @@
 
   D.act = function (g, a) {
     if (g.finished) return;
-    if (a === 'left') g.lane = Math.max(0, g.lane - 1);
+    if (a === 'left') g.lane = Math.max(g.rivalLane ? -1 : 0, g.lane - 1); // −1 — дорожка соперников
     else if (a === 'right') g.lane = Math.min(2, g.lane + 1);
     else if (a === 'jump') { if (g.y <= 0.001) { g.vy = D.JUMP_V; g.events.push({ kind: 'jump' }); } }
     else if (a === 'cadUp') g.cad = Math.min(D.CAD.max, g.cad + D.CAD.step);
@@ -459,7 +466,7 @@
     g.phase += dt * (f.cad / 60) * Math.PI; // один цикл = два шага
 
     // перестроение
-    const tx = LANES[g.lane];
+    const tx = g.lane < 0 ? D.RIVAL_LANE.x : LANES[g.lane];
     const dx = clamp(tx - g.px, -11 * dt, 11 * dt);
     g.vx = dt > 0 ? dx / dt : 0;
     g.px += dx;
@@ -504,9 +511,21 @@
         else if (isAhead && rv.passed) { rv.passed = false; g.stats.stars--; }
       } else if (isAhead) ahead++;
       const dz = rv.z - g.pz;
+      if (g.rivalLane) {
+        // масс-старт: со всей ширины дороги сбегают на свою дорожку и дальше бегут только по ней;
+        // если игрок на их дорожке, догоняющий сзади обходит его у края дорожки
+        const k = clamp((g.t - rv.fd) / rv.fdur, 0, 1); // чем дальше бежать вбок, тем дольше
+        if (k < 1) rv.x = rv.x0 + (rv.laneX - rv.x0) * k * k * (3 - 2 * k);
+        else {
+          let tx = rv.laneX;
+          if (dz < 1.5 && dz > -2.6 && rv.v > g.speed && Math.abs(tx - g.px) < 0.6) tx = g.px - 0.6 >= RL_MIN ? g.px - 0.6 : g.px + 0.6;
+          rv.x += clamp(clamp(tx, RL_MIN, RL_MAX) - rv.x, -3 * dt, 3 * dt);
+        }
+        if (dz > -12 && dz < 160) rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
+        continue;
+      }
       if (dz > -12 && dz < 160) {
         rv.phase += dt * (2.4 + rv.v * 0.06) * Math.PI;
-        if (g.rivalLane) { rv.x = rv.laneX; continue; } // своя дорожка: ни препятствий, ни игрока
         // весь забег — в своей полосе. Мимо препятствия и мимо игрока — только сдвиг к краю своей полосы,
         // через фан-барьер и собаку — прыжок, по луже — насквозь
         const base = LANES[rv.lane];
@@ -528,6 +547,7 @@
     if (g.invulnT <= 0) {
       for (const rv of g.rivals) {
         const dz = rv.z - g.pz;
+        if (g.rivalLane && g.t < rv.fd + rv.fdur) continue; // на старте, пока сбегают на свою дорожку, не сталкиваемся
         if (dz > 0 && dz < 0.55 && Math.abs(rv.x - g.px) < 0.6 && g.y < 0.6 && g.speed > rv.v) {
           hit(g, { type: 'runner', hit: false });
           break;

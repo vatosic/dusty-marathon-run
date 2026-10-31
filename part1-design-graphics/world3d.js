@@ -47,7 +47,7 @@
       if (rep) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * rep[0], uv.getY(i) * rep[1]); }
       const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; root.add(m); return m;
     };
-    // тестовый режим: слева от трёх полос игрока — отдельная дорожка соперников, тротуар уже
+    // слева от трёх полос игрока — дорожка соперников (игрок тоже может по ней бежать), тротуар уже
     const RL = !!g.rivalLane, roadL = RL ? D.RIVAL_LANE.left : -2.45;
     strip(-7.5, roadL - 0.3, 0.06, lambert('#ffffff', { map: T.tiles('#c3bbae', 'rgba(90,80,70,0.35)') }), [(roadL - 0.3 + 7.5) / 1.6, len / 1.6]);
     strip(2.75, 6.2, 0.06, lambert('#ffffff', { map: T.tiles('#b2a69c', 'rgba(70,60,55,0.35)') }), [2, len / 1.6]);
@@ -73,14 +73,11 @@
     const curbMat = lambert('#dcd5c8');
     for (const [a, b] of [[roadL - 0.3, roadL], [2.45, 2.75]]) { const m = boxAt(unitBox, curbMat, a, b, 0, 0.12, z0, z1); m.receiveShadow = true; root.add(m); }
     if (RL) {
-      // разделитель: сплошная белая линия и конусы каждые 6 м
-      root.add(boxAt(unitBox, new THREE.MeshBasicMaterial({ color: '#ffffff' }), -2.52, -2.38, 0, 0.012, z0, z1));
+      // разделитель: прерывистая белая линия — через неё можно перебегать (штрих 3 м, просвет 3 м)
       const n = Math.floor((z1 - z0) / 6), mt = new THREE.Matrix4();
-      const cone = new THREE.InstancedMesh(new THREE.ConeGeometry(0.16, 0.5, 12).translate(0, 0.25, 0), lambert('#ff7a1a'), n);
-      const band = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.105, 0.125, 0.09, 12).translate(0, 0.27, 0), lambert('#ffffff'), n);
-      for (let i = 0; i < n; i++) { mt.makeTranslation(-2.45, 0, Z(z0 + i * 6 + 3)); cone.setMatrixAt(i, mt); band.setMatrixAt(i, mt); }
-      for (const im of [cone, band]) { im.frustumCulled = false; root.add(im); }
-      cone.castShadow = true;
+      const dash = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.014, 3), new THREE.MeshBasicMaterial({ color: '#ffffff' }), n);
+      for (let i = 0; i < n; i++) { mt.makeTranslation(-2.45, 0.007, Z(z0 + i * 6 + 1.5)); dash.setMatrixAt(i, mt); }
+      dash.frustumCulled = false; root.add(dash);
     }
     // гранитный парапет
     {

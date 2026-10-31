@@ -14,10 +14,8 @@
   const clubRoster = () => ({ participants: D.clubParticipants(), mode: 'club', stats: null, file: '' });
   const demoRoster = () => ({ participants: D.demoParticipants(), mode: 'demo', stats: null, file: '' });
   let roster = clubRoster();
-  // тестовый режим: соперники на своей дорожке слева (переключатель на старте или ?lane=4 в адресе)
-  const LANE_KEY = 'dusty.rivalLane';
-  let rivalLane = /[?&]lane=4(&|$)/.test(G.location.search);
-  try { if (!rivalLane) rivalLane = G.localStorage.getItem(LANE_KEY) === '1'; } catch (e) { /* без хранилища */ }
+  // соперники бегут по своей дорожке слева; ?lane=3 в адресе — прежний режим, где они бегут по полосам игрока
+  const rivalLane = !/[?&]lane=3(&|$)/.test(G.location.search);
   const reduceMQ = G.matchMedia ? G.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /* ---------- участники ---------- */
@@ -76,11 +74,6 @@
   });
   $('btnDemo').addEventListener('click', () => { roster = demoRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
   $('btnClub').addEventListener('click', () => { roster = clubRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
-  $('optLane').checked = rivalLane;
-  $('optLane').addEventListener('change', (e) => {
-    rivalLane = e.target.checked;
-    try { G.localStorage.setItem(LANE_KEY, rivalLane ? '1' : '0'); } catch (x) { /* без сохранения */ }
-  });
 
   /* ---------- звук ---------- */
   function soundUI() {
@@ -287,7 +280,6 @@
     $('fHits').textContent = 'Столкновения: ' + (ht || 'ни одного') + (g.stats.shield ? '; пейсер защитил ×' + g.stats.shield : '') + '.';
     $('fNote').textContent = (g.total > 1 ? 'Место считается по итоговому времени с бонусами и штрафами. ' : 'Соперников нет — ты бежишь один. ') +
       (roster.mode === 'demo' ? 'Соперники — демонстрационный список вымышленных бегунов.' : roster.mode === 'club' ? 'Соперники — участники клуба «Пыльные Гантели».' : 'Соперники загружены из файла «' + roster.file + '».') +
-      (g.rivalLane ? ' Тестовый режим: соперники бежали по своей дорожке.' : '') +
       (g.starsOn ? ' Звёзд бега позади: ' + g.stats.stars + ' из ' + D.STARS.length + ' — в место они не входят.' : '') +
       ' Трасса — художественная адаптация, не GPS-копия.';
     show('finish');
