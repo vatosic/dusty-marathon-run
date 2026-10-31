@@ -104,6 +104,17 @@
     const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; cache.set('asphalt', t); return t;
   };
 
+  // Беговое покрытие (тартан) Лужников: терракота с зерном и сплошные белые линии на границах игровых полос
+  T.tartan = function () {
+    if (cache.has('tartan')) return cache.get('tartan');
+    const c = canvas(512, 256), x = c.getContext('2d'); const r = D.rng(17);
+    x.fillStyle = '#b4452f'; x.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 9000; i++) { const v = r(); x.fillStyle = v < 0.5 ? 'rgba(120,30,18,0.35)' : 'rgba(230,120,90,0.3)'; x.fillRect(r() * 512, r() * 256, 1.5, 1.5); }
+    x.fillStyle = 'rgba(255,255,255,0.92)';
+    for (const u of [0.035, 0.352, 0.648, 0.965]) x.fillRect(512 * u - 3, 0, 6, 256);
+    const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; cache.set('tartan', t); return t;
+  };
+
   T.tiles = function (base, line) {
     const k = 'tiles' + base;
     if (cache.has(k)) return cache.get(k);
@@ -141,7 +152,7 @@
     const key = 'txt|' + text + '|' + JSON.stringify(opts);
     if (cache.has(key)) return cache.get(key);
     const w = opts.w || 512, h = opts.h || 128, c = canvas(w, h), x = c.getContext('2d');
-    x.fillStyle = opts.bg || '#ffffff'; x.fillRect(0, 0, w, h);
+    if (opts.bg !== 'none') { x.fillStyle = opts.bg || '#ffffff'; x.fillRect(0, 0, w, h); }
     if (opts.stripe) { x.fillStyle = opts.stripe; x.fillRect(0, h * 0.82, w, h * 0.1); }
     if (opts.checker) { for (let i = 0; i < w / 16; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#fff' : INK; x.fillRect(i * 16, h - 32 + j * 16, 16, 16); } }
     let size = opts.size || h * 0.55;
@@ -178,6 +189,15 @@
     const t = tex(c); cache.set(key, t); return t;
   };
 
+  // Луч света: яркий у источника (верх развёртки), к концу гаснет; цвет задаёт материал
+  T.beam = function () {
+    if (cache.has('beam')) return cache.get('beam');
+    const c = canvas(64, 256), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, 'rgba(255,255,255,0.85)'); g.addColorStop(0.35, 'rgba(255,255,255,0.32)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 256);
+    const t = tex(c); cache.set('beam', t); return t;
+  };
   T.radial = function (inner, outer) {
     const key = 'rad' + inner + outer;
     if (cache.has(key)) return cache.get(key);

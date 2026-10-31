@@ -264,7 +264,7 @@
   }
 
   /* ---------- предметы и препятствия ---------- */
-  function itemSprite(c, type, t, seed) {
+  function itemSprite(c, type, t, seed, variant) {
     const def = D.ITEMS[type];
     const bob = reduced ? 0 : Math.sin(t * 3 + seed) * 0.07;
     // светящийся столб — читается издалека
@@ -276,38 +276,68 @@
     // подложка-медальон
     c.fillStyle = 'rgba(255,255,255,0.92)'; ell(c, 0, 0, 0.36, 0.36); c.fill();
     c.strokeStyle = def.color; c.lineWidth = 0.07; c.stroke();
+    const txt = (s2, x, y, size, col) => { c.fillStyle = col; c.font = '800 ' + size + 'px sans-serif'; c.textAlign = 'center'; c.fillText(s2, x, y); };
     switch (type) {
-      case 'gel':
-        c.fillStyle = PINK; rr(c, -0.14, -0.22, 0.28, 0.4, 0.05); c.fill();
-        c.fillStyle = LIME; c.fillRect(-0.14, -0.06, 0.28, 0.08);
+      case 'gel': {
+        const lk = { sis: ['SiS', '#1f4fd1', '#fff'], gel4u: ['GEL4U', '#ff7a1a', INK], gu: ['GU', '#e8365a', '#fff'], maurten: ['MAURTEN', '#f1f1ec', '#15151a'] }[variant] || ['GEL', PINK, '#fff'];
+        c.fillStyle = lk[1]; rr(c, -0.15, -0.22, 0.3, 0.42, 0.05); c.fill();
+        c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.02; c.stroke();
         c.fillStyle = INK; c.beginPath(); c.moveTo(-0.06, -0.22); c.lineTo(0.06, -0.22); c.lineTo(0.03, -0.3); c.lineTo(-0.03, -0.3); c.fill();
+        txt(lk[0], 0, 0.03, lk[0].length > 4 ? 0.06 : 0.11, lk[2]);
         break;
-      case 'banana':
-        c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(0.02, -0.12, 0.25, 0.35, 2.75); c.arc(0.02, -0.26, 0.24, 2.6, 0.5, true); c.fill();
-        c.fillStyle = '#6b4a2b'; c.fillRect(0.2, -0.07, 0.05, 0.05);
+      }
+      case 'drink':
+        if (variant === 'cola') {
+          c.fillStyle = '#c8102e'; rr(c, -0.12, -0.22, 0.24, 0.42, 0.04); c.fill();
+          c.fillStyle = '#d9d9de'; c.fillRect(-0.11, -0.25, 0.22, 0.04);
+          txt('COLA', 0, 0.02, 0.075, '#fff');
+        } else if (variant === 'iso') {
+          c.fillStyle = '#ffb21a'; rr(c, -0.1, -0.2, 0.2, 0.42, 0.06); c.fill();
+          c.fillStyle = INK; c.fillRect(-0.1, -0.06, 0.2, 0.11); c.fillRect(-0.05, -0.29, 0.1, 0.09);
+          txt('ISO', 0, 0.025, 0.07, '#ffb21a');
+        } else {
+          c.fillStyle = '#7fd0ff'; rr(c, -0.1, -0.2, 0.2, 0.42, 0.06); c.fill();
+          c.fillStyle = '#ffffff'; c.fillRect(-0.1, -0.05, 0.2, 0.08);
+          c.fillStyle = '#1b6fd1'; c.fillRect(-0.05, -0.27, 0.1, 0.07);
+        }
         break;
-      case 'water':
-        c.fillStyle = '#3fb7ff'; rr(c, -0.1, -0.2, 0.2, 0.42, 0.06); c.fill();
-        c.fillStyle = '#d8f3ff'; c.fillRect(-0.1, -0.05, 0.2, 0.08);
-        c.fillStyle = '#1b6fd1'; c.fillRect(-0.05, -0.27, 0.1, 0.07);
+      case 'food':
+        if (variant === 'orange') {
+          c.fillStyle = '#ff8c1a'; ell(c, 0, 0, 0.2, 0.2); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.35)'; ell(c, -0.07, -0.07, 0.05, 0.04); c.fill();
+          c.fillStyle = '#3f8a3a'; ell(c, 0.06, -0.21, 0.07, 0.03); c.fill();
+        } else if (variant === 'burger') {
+          c.fillStyle = '#d9913a'; c.beginPath(); c.ellipse(0, -0.04, 0.24, 0.17, 0, Math.PI, 0); c.fill();
+          c.fillStyle = '#5fbf3a'; c.fillRect(-0.25, -0.04, 0.5, 0.05);
+          c.fillStyle = '#ffcf3a'; c.fillRect(-0.23, 0.01, 0.46, 0.03);
+          c.fillStyle = '#5a2e1a'; rr(c, -0.23, 0.04, 0.46, 0.07, 0.03); c.fill();
+          c.fillStyle = '#d9913a'; rr(c, -0.22, 0.11, 0.44, 0.08, 0.04); c.fill();
+          c.fillStyle = '#fff3d6'; for (let i = 0; i < 5; i++) { ell(c, -0.12 + i * 0.06, -0.12 - (i % 2) * 0.04, 0.012, 0.007); c.fill(); }
+        } else {
+          c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(0.02, -0.12, 0.25, 0.35, 2.75); c.arc(0.02, -0.26, 0.24, 2.6, 0.5, true); c.fill();
+          c.fillStyle = '#6b4a2b'; c.fillRect(0.2, -0.07, 0.05, 0.05);
+        }
         break;
-      case 'breath':
-        c.strokeStyle = '#21a7c6'; c.lineWidth = 0.05; c.lineCap = 'round';
-        for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(-0.2, -0.12 + i * 0.12); c.quadraticCurveTo(0.05, -0.2 + i * 0.12, 0.18, -0.1 + i * 0.12); c.stroke(); }
+      case 'boost':
+        if (variant === 'magnesium') {
+          c.fillStyle = '#39e27a'; rr(c, -0.22, -0.1, 0.44, 0.2, 0.1); c.fill();
+          c.fillStyle = '#fff'; c.fillRect(0, -0.1, 0.22, 0.2);
+          txt('Mg', -0.1, 0.05, 0.13, '#167a3c');
+        } else if (variant === 'puer') {
+          c.fillStyle = '#e9dcc6'; ell(c, 0, 0.14, 0.22, 0.05); c.fill();
+          c.fillStyle = '#a04a26'; c.beginPath(); c.moveTo(-0.17, -0.06); c.lineTo(0.17, -0.06); c.lineTo(0.11, 0.13); c.lineTo(-0.11, 0.13); c.closePath(); c.fill();
+          c.fillStyle = '#4a1c0c'; ell(c, 0, -0.06, 0.17, 0.035); c.fill();
+          c.strokeStyle = 'rgba(160,160,160,0.7)'; c.lineWidth = 0.025; c.lineCap = 'round';
+          for (const x of [-0.06, 0.05]) { c.beginPath(); c.moveTo(x, -0.1); c.quadraticCurveTo(x + 0.05, -0.17, x, -0.24); c.stroke(); }
+        } else {
+          c.fillStyle = '#8a4f22'; c.beginPath(); c.moveTo(-0.15, -0.12); c.lineTo(0.15, -0.12); c.lineTo(0.11, 0.18); c.lineTo(-0.11, 0.18); c.closePath(); c.fill();
+          c.fillStyle = '#fff'; c.fillRect(-0.16, -0.17, 0.32, 0.06);
+          c.fillStyle = LIME; c.beginPath(); c.moveTo(0.02, -0.08); c.lineTo(-0.06, 0.04); c.lineTo(0, 0.04); c.lineTo(-0.03, 0.14); c.lineTo(0.07, 0); c.lineTo(0.01, 0); c.closePath(); c.fill();
+        }
         break;
       case 'pacer':
         c.fillStyle = VIOLET; c.beginPath(); c.moveTo(0, -0.26); c.lineTo(0.2, -0.16); c.lineTo(0.17, 0.08); c.lineTo(0, 0.22); c.lineTo(-0.17, 0.08); c.lineTo(-0.2, -0.16); c.closePath(); c.fill();
-        c.fillStyle = '#fff'; c.font = '800 0.13px sans-serif'; c.textAlign = 'center'; c.fillText('PACE', 0, 0.03);
-        break;
-      case 'caffeine':
-        c.fillStyle = '#8a4f22'; c.beginPath(); c.moveTo(-0.15, -0.12); c.lineTo(0.15, -0.12); c.lineTo(0.11, 0.18); c.lineTo(-0.11, 0.18); c.closePath(); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(-0.16, -0.17, 0.32, 0.06);
-        c.fillStyle = LIME; c.beginPath(); c.moveTo(0.02, -0.08); c.lineTo(-0.06, 0.04); c.lineTo(0, 0.04); c.lineTo(-0.03, 0.14); c.lineTo(0.07, 0); c.lineTo(0.01, 0); c.closePath(); c.fill();
-        break;
-      case 'magnesium':
-        c.fillStyle = '#39e27a'; rr(c, -0.22, -0.1, 0.44, 0.2, 0.1); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(0, -0.1, 0.22, 0.2);
-        c.fillStyle = '#167a3c'; c.font = '800 0.13px sans-serif'; c.textAlign = 'center'; c.fillText('Mg', -0.1, 0.05);
+        txt('PACE', 0, 0.03, 0.13, '#fff');
         break;
     }
     c.translate(0, 0.85 - bob);
@@ -322,20 +352,31 @@
         c.strokeStyle = 'rgba(255,255,255,' + (0.5 * (1 - rp)) + ')'; c.lineWidth = 0.025; ell(c, 0.2, -0.02, 0.1 + rp * 0.3, 0.03 + rp * 0.07); c.stroke();
         break;
       }
-      case 'fence': {
-        c.fillStyle = '#9aa3ad'; c.fillRect(-0.62, -0.62, 0.05, 0.62); c.fillRect(0.57, -0.62, 0.05, 0.62);
-        c.fillStyle = '#fff'; c.fillRect(-0.65, -0.6, 1.3, 0.24);
-        c.fillStyle = '#e8365a'; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(-0.6 + i * 0.27, -0.36); c.lineTo(-0.47 + i * 0.27, -0.6); c.lineTo(-0.36 + i * 0.27, -0.6); c.lineTo(-0.49 + i * 0.27, -0.36); c.fill(); }
-        c.fillStyle = '#6b7480'; c.fillRect(-0.7, -0.03, 0.3, 0.03); c.fillRect(0.4, -0.03, 0.3, 0.03);
+      case 'fanbarrier': {
+        c.fillStyle = '#aab2bb';
+        c.fillRect(-0.64, -0.66, 0.04, 0.66); c.fillRect(0.6, -0.66, 0.04, 0.66); c.fillRect(-0.64, -0.66, 1.28, 0.04); c.fillRect(-0.64, -0.12, 1.28, 0.03);
+        for (let i = 1; i < 9; i++) c.fillRect(-0.62 + i * 0.14, -0.62, 0.02, 0.5);
+        c.fillStyle = PINK; c.fillRect(-0.6, -0.57, 1.2, 0.3);
+        c.fillStyle = LIME; c.fillRect(-0.6, -0.31, 1.2, 0.04);
+        c.fillStyle = '#fff'; c.font = '800 0.17px sans-serif'; c.textAlign = 'center'; c.fillText('DUSTY', 0, -0.36);
+        c.fillStyle = '#6b7480'; c.fillRect(-0.72, -0.03, 0.22, 0.03); c.fillRect(0.5, -0.03, 0.22, 0.03);
         break;
       }
-      case 'barrier': {
-        c.fillStyle = '#ff7a1a'; rr(c, -0.66, -1.05, 1.32, 1.05, 0.08); c.fill();
-        c.fillStyle = '#fff'; c.fillRect(-0.66, -0.78, 1.32, 0.16); c.fillRect(-0.66, -0.42, 1.32, 0.16);
-        c.fillStyle = '#2b2b33'; c.fillRect(-0.05, -1.7, 0.1, 0.66);
-        c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(0, -1.78); c.lineTo(0.32, -1.32); c.lineTo(-0.32, -1.32); c.closePath(); c.fill();
-        c.strokeStyle = '#1e0b2e'; c.lineWidth = 0.035; c.stroke();
-        c.fillStyle = '#1e0b2e'; c.fillRect(-0.02, -1.62, 0.04, 0.16); c.fillRect(-0.02, -1.42, 0.04, 0.04);
+      case 'scooter': {
+        // самокат в профиль, едет влево; ездок стоит на деке
+        c.fillStyle = '#1d1f26'; rr(c, -0.42, -0.2, 0.84, 0.06, 0.02); c.fill();
+        c.fillRect(-0.4, -1.2, 0.05, 1.02); c.fillRect(-0.55, -1.22, 0.3, 0.05);
+        for (const x of [-0.36, 0.36]) { c.fillStyle = '#1d1f26'; ell(c, x, -0.1, 0.1, 0.1); c.fill(); c.fillStyle = LIME; ell(c, x, -0.1, 0.04, 0.04); c.fill(); }
+        c.save(); c.translate(0.05, -0.18); c.scale(0.92, 0.92);
+        personFront(c, { skin: '#d9a07a', hair: '#1c1c1c', shirt: '#3a7bff', shorts: '#2f3a55', shoes: '#fff', cap: '#1e1e28' }, 'walk', 0, o.z);
+        c.restore();
+        break;
+      }
+      case 'volunteer': {
+        personFront(c, { skin: '#e3b18c', hair: '#5a3a22', shirt: '#ff7a1a', shorts: '#2f3a55', shoes: '#222', cap: '#ffffff' }, 'stand', t, o.z, { vest: '#ff7a1a' });
+        c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(-0.07, -1.12); c.lineTo(0.07, -1.12); c.lineTo(0.05, -0.98); c.lineTo(-0.05, -0.98); c.closePath(); c.fill();
+        c.fillStyle = '#7fd0ff'; c.fillRect(-0.06, -1.12, 0.12, 0.03);
+        c.fillStyle = INK; c.font = '800 0.07px sans-serif'; c.textAlign = 'center'; c.fillText('ВОЛОНТЁР', 0, -0.82);
         break;
       }
       case 'photographer': {
@@ -393,9 +434,9 @@
   }
 
   function arch(c, text, kind, t) {
-    const colA = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : PINK;
+    const colA = kind === 'finish' ? '#ffffff' : kind === 'start' ? VIOLET : kind === 'km' ? LIME : kind === 'luzh' ? '#ffffff' : PINK;
     c.fillStyle = colA; c.fillRect(-3.3, -5.6, 0.35, 5.6); c.fillRect(2.95, -5.6, 0.35, 5.6);
-    c.fillStyle = kind === 'finish' ? INK : kind === 'start' ? VIOLET : PINK;
+    c.fillStyle = kind === 'finish' ? INK : kind === 'start' || kind === 'km' ? VIOLET : kind === 'luzh' ? '#c8102e' : PINK;
     c.fillRect(-3.4, -5.9, 6.8, 1.25);
     if (kind === 'finish') {
       for (let i = 0; i < 17; i++) for (let j = 0; j < 2; j++) { c.fillStyle = (i + j) % 2 ? '#fff' : INK; c.fillRect(-3.4 + i * 0.4, -4.85 + j * 0.2, 0.4, 0.2); }
@@ -408,7 +449,37 @@
     }
   }
 
+  // Светомузыка точки Дасти: лучи веером и стробы в такт музыке (D.BPM)
+  function raveLights(c, t, w, h, n) {
+    if (reduced) return;
+    const beat = t * D.BPM / 60, kick = Math.pow(1 - (beat % 1), 4), cols = ['255,46,147', '108,43,217', '200,255,26', '33,198,198', '255,122,26'];
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + Math.sin(t * (0.9 + (i % 3) * 0.25) + i * 1.3) * 0.9, x0 = -w / 2 + i * w / (n - 1);
+      const gr = c.createLinearGradient(x0, -h, x0 + Math.cos(a) * 14, -h + Math.sin(a) * 14);
+      gr.addColorStop(0, 'rgba(' + cols[(i + (Math.floor(beat) >> 2)) % 5] + ',' + (0.35 + 0.35 * kick) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = gr; c.beginPath(); c.moveTo(x0, -h);
+      c.lineTo(x0 + Math.cos(a - 0.09) * 14, -h + Math.sin(a - 0.09) * 14); c.lineTo(x0 + Math.cos(a + 0.09) * 14, -h + Math.sin(a + 0.09) * 14); c.closePath(); c.fill();
+    }
+    if (Math.floor(beat) % 4 === 0) { c.fillStyle = 'rgba(255,255,255,' + kick * 0.8 + ')'; for (const x of [-w / 2, w / 2]) { ell(c, x, -h, 0.4, 0.4); c.fill(); } }
+    c.restore();
+  }
+  function raveSmall(c, t) {
+    raveLights(c, t, 3, 4.3, 4);
+    c.fillStyle = '#2a2a33'; c.fillRect(-1.5, -4.4, 0.22, 4.4); c.fillRect(1.3, -4.4, 0.22, 4.4); c.fillRect(-1.6, -4.5, 3.3, 0.3);
+    c.fillStyle = INK; c.fillRect(-1.45, -4.15, 2.9, 0.6);
+    c.fillStyle = LIME; c.font = '800 0.34px "Unbounded", sans-serif'; c.textAlign = 'center'; c.fillText('DUSTY RAVE', 0.05, -3.72);
+    for (const x of [-2.2, 2.2]) { c.fillStyle = '#15151b'; c.fillRect(x - 0.45, -2.1, 0.9, 2.1); c.fillStyle = '#3a3a48'; ell(c, x, -1.45, 0.27, 0.27); c.fill(); ell(c, x, -0.6, 0.21, 0.21); c.fill(); }
+  }
+
   function djBooth(c, t, level) {
+    // LED-стена и светомузыка за шатром
+    const beat = t * D.BPM / 60, kick = Math.pow(1 - (beat % 1), 4), hue = (beat * 12) % 360;
+    c.fillStyle = '#05030a'; c.fillRect(-3.4, -6.8, 6.8, 3.6);
+    c.fillStyle = 'hsla(' + hue + ',90%,50%,' + (0.3 + 0.4 * kick) + ')'; c.fillRect(-3.4, -6.8, 6.8, 3.6);
+    for (let i = 0; i < 16; i++) { const v = 0.3 + 0.7 * Math.abs(Math.sin(t * (2 + i * 0.4) + i)); c.fillStyle = 'hsl(' + (hue + i * 14) % 360 + ',95%,60%)'; c.fillRect(-3.3 + i * 0.41, -3.3 - v * 1.4, 0.32, v * 1.4); }
+    c.fillStyle = '#fff'; c.font = '800 0.9px "Unbounded", sans-serif'; c.textAlign = 'center'; c.fillText('DJ KIM', 0, -5.3);
+    raveLights(c, t, 6.6, 6.9, 6);
     // шатёр Дасти
     c.fillStyle = PINK; c.beginPath(); c.moveTo(-2.4, -2.8); c.lineTo(0, -3.9); c.lineTo(2.4, -2.8); c.closePath(); c.fill();
     c.fillStyle = VIOLET; c.fillRect(-2.3, -2.85, 4.6, 0.25);
@@ -671,9 +742,11 @@
     }
     ctx.fillStyle = curCol; ctx.fill();
     // тротуар, бордюры, дорога, набережная
-    ctx.fillStyle = '#bdb5a8'; ctx.beginPath(); band(-7.5, -2.75, 0, zn, zf); ctx.fill();
-    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); band(-2.75, -2.45, 0, zn, zf); band(2.45, 2.75, 0, zn, zf); ctx.fill();
-    ctx.fillStyle = '#4a4b55'; ctx.beginPath(); band(-2.45, 2.45, 0, zn, zf); ctx.fill();
+    // тестовый режим: слева от полос игрока — дорожка соперников
+    const roadL = g.rivalLane ? D.RIVAL_LANE.left : -2.45;
+    ctx.fillStyle = '#bdb5a8'; ctx.beginPath(); band(-7.5, roadL - 0.3, 0, zn, zf); ctx.fill();
+    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); band(roadL - 0.3, roadL, 0, zn, zf); band(2.45, 2.75, 0, zn, zf); ctx.fill();
+    ctx.fillStyle = '#4a4b55'; ctx.beginPath(); band(roadL, 2.45, 0, zn, zf); ctx.fill();
     ctx.fillStyle = '#ab9f95'; ctx.beginPath(); band(2.75, 6.2, 0, zn, zf); ctx.fill();
     // полосы движения (лёгкая текстура асфальта и плитки)
     ctx.beginPath();
@@ -695,6 +768,19 @@
     ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.beginPath();
     for (const lx of [-0.725, 0.725]) band(lx - 0.04, lx + 0.04, 0, zn, Math.min(zf, cam.z + 160));
     ctx.fill();
+    // Лужники: беговое покрытие с белыми линиями вместо асфальта
+    const ta = Math.max(zn, D.kmToZ(D.TRACK_KM[0])), tb = Math.min(zf, D.kmToZ(D.TRACK_KM[1]));
+    if (tb > ta) {
+      ctx.fillStyle = '#b4452f'; ctx.beginPath(); band(roadL, 2.45, 0, ta, tb); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath();
+      for (const lx of [-2.28, -0.725, 0.725, 2.28]) band(lx - 0.03, lx + 0.03, 0, ta, Math.min(tb, cam.z + 160));
+      ctx.fill();
+    }
+    if (g.rivalLane) { // прерывистая линия у дорожки соперников
+      ctx.fillStyle = '#ffffff'; ctx.beginPath();
+      for (let z = Math.floor(zn / 6) * 6; z < Math.min(zf, cam.z + 160); z += 6) band(-2.52, -2.38, 0, Math.max(zn, z), z + 3);
+      ctx.fill();
+    }
     // гранитный парапет
     ctx.fillStyle = '#8c7f78'; ctx.beginPath(); vband(6.2, 0, 1.0, zn, zf); ctx.fill();
     ctx.fillStyle = '#c0b4aa'; ctx.beginPath(); band(6.2, 6.9, 1.0, zn, zf); ctx.fill();
@@ -740,7 +826,43 @@
       ctx.fillStyle = sh(b.color, -0.35); ctx.beginPath(); vband(b.xf, 0, 3.2, z0, z1); ctx.fill();
     }
     if (b.roof) { ctx.fillStyle = sh(b.color, -0.4); ctx.beginPath(); vband(b.xf + 0.01, b.h, b.h + 1.2, z0, z1); ctx.fill(); }
+    if (!b.kremlin && dn < 170) styleDetails(b, z0, z1, dn);
     ctx.globalAlpha = 1;
+  }
+  // детали стиля: карниз, руст, двускатная крыша на торце, башня со шпилем, труба, портик, витраж
+  function styleDetails(b, z0, z1, dn) {
+    const st = b.style;
+    if (st === 'stalin' || st === 'classic' || st === 'merchant') { ctx.fillStyle = sh(b.color, 0.18); ctx.beginPath(); vband(b.xf + 0.02, b.h - 0.6, b.h, z0, z1); ctx.fill(); }
+    if (st === 'stalin') { ctx.fillStyle = sh(b.color, -0.25); ctx.beginPath(); vband(b.xf + 0.02, 0, 6.8, z0, z1); ctx.fill(); }
+    if (st === 'modern') { ctx.fillStyle = 'rgba(220,235,250,0.35)'; ctx.beginPath(); for (let y = 3.6; y < b.h; y += 3.6) vband(b.xf + 0.02, y - 0.25, y, z0, z1); ctx.fill(); }
+    if ((st === 'merchant' || st === 'brick') && b.z > cam.z + 0.7) {
+      ctx.fillStyle = st === 'brick' ? '#5d5f66' : '#7d8a8c'; ctx.beginPath();
+      ctx.moveTo(PX(b.xf, dn), PY(b.h, dn)); ctx.lineTo(PX(b.xf - b.depth / 2, dn), PY(b.h + b.depth * (st === 'brick' ? 0.18 : 0.32), dn)); ctx.lineTo(PX(b.xf - b.depth, dn), PY(b.h, dn)); ctx.closePath(); ctx.fill();
+    }
+    const at = (z) => z - cam.z;
+    if (st === 'stalin' && b.tower) {
+      const w = Math.min(b.depth, b.len) * 0.5, zc = b.z + b.len - w / 2 - 0.6, d = at(zc);
+      if (d > 0.8) {
+        const x = PX(b.xf - b.depth / 2, d), s = f / d, h1 = b.h * 0.32, h2 = b.h * 0.2;
+        ctx.fillStyle = b.color; ctx.fillRect(x - w * s / 2, PY(b.h + h1, d), w * s, h1 * s);
+        ctx.fillRect(x - w * 0.31 * s, PY(b.h + h1 + h2, d), w * 0.62 * s, h2 * s);
+        ctx.fillStyle = '#c9a23a'; ctx.beginPath(); ctx.moveTo(x - w * 0.1 * s, PY(b.h + h1 + h2, d)); ctx.lineTo(x, PY(b.h * 1.82, d)); ctx.lineTo(x + w * 0.1 * s, PY(b.h + h1 + h2, d)); ctx.fill();
+      }
+    }
+    if (st === 'brick' && b.chimney) {
+      const d = at(b.z + b.len * 0.3);
+      if (d > 0.8) { const x = PX(b.xf - b.depth * 0.7, d), s = f / d; ctx.fillStyle = sh(b.color, -0.2); ctx.fillRect(x - 0.9 * s, PY(b.h + 14 + (b.len % 8), d), 1.8 * s, (b.h + 14 + (b.len % 8)) * s); }
+    }
+    if (st === 'classic' && b.portico) {
+      const n = b.len > 22 ? 6 : 4, span = Math.min(b.len - 2, n * 2.2), colH = Math.min(b.h * 0.62, 9);
+      ctx.fillStyle = '#f4f1ea';
+      for (let i = 0; i < n; i++) { const d = at(b.z + b.len / 2 - span / 2 + (i + 0.5) * span / n); if (d < 0.8) continue; const s = f / d; ctx.fillRect(PX(b.xf + 1.1, d) - 0.2 * s, PY(colH, d), 0.4 * s, colH * s); }
+      const da = at(b.z + b.len / 2 - span / 2), db = at(b.z + b.len / 2 + span / 2);
+      if (da > 0.8) {
+        ctx.beginPath(); ctx.moveTo(PX(b.xf + 1.1, da), PY(colH + 0.7, da)); ctx.lineTo(PX(b.xf + 1.1, (da + db) / 2), PY(colH + 0.7 + Math.min(2.6, span * 0.18), (da + db) / 2));
+        ctx.lineTo(PX(b.xf + 1.1, db), PY(colH + 0.7, db)); ctx.lineTo(PX(b.xf + 1.1, db), PY(colH, db)); ctx.lineTo(PX(b.xf + 1.1, da), PY(colH, da)); ctx.closePath(); ctx.fill();
+      }
+    }
   }
 
   function drawBridge(br) {
@@ -781,7 +903,7 @@
     time += dt;
     const km = D.zToKm(g.pz);
     // камера: плавное следование, лёгкая динамика при ускорении
-    const boost = g.caffT > 0 ? 1 : 0;
+    const boost = g.boostT > 0 ? 1 : 0;
     const back = 6.9 + (reduced ? 0 : boost * 0.5 + clamp((g.speed - 15) / 10, 0, 0.6) * 0.5);
     cam.back += (back - cam.back) * Math.min(1, dt * 2.5);
     cam.z = g.pz - cam.back;
@@ -800,7 +922,7 @@
     const sc = g.scenery;
     drawList.length = 0;
     const zMin = cam.z - 40, zMax = cam.z + FAR;
-    for (const b of sc.buildings) { if (b.z + b.len < cam.z || b.z > zMax) continue; push(b.z, 'bld', b); }
+    for (const b of sc.buildings) { if (b.back || b.z + b.len < cam.z || b.z > zMax) continue; push(b.z, 'bld', b); }
     for (const l of sc.landmarks) { if (l.z < cam.z + 45 || l.z > zMax + 60) continue; push(l.z, 'lm', l); }
     for (const t of sc.towers) { if (t.z < cam.z + 2 || t.z > zMax) continue; push(t.z, 'tower', t); }
     drawList.sort((a, b) => b.z - a.z);
@@ -828,7 +950,8 @@
     // болельщики: бинарный поиск по отсортированному списку
     let lo = 0, hi = sc.fans.length;
     while (lo < hi) { const m = (lo + hi) >> 1; if (sc.fans[m].z < cam.z + 0.8) lo = m + 1; else hi = m; }
-    for (let i = lo; i < sc.fans.length && sc.fans[i].z < cam.z + 170; i++) push(sc.fans[i].z, 'fan', sc.fans[i]);
+    for (let i = lo; i < sc.fans.length && sc.fans[i].z < cam.z + 170; i++) if (!sc.fans[i].zone || sc.fans[i].z < cam.z + 90) push(sc.fans[i].z, 'fan', sc.fans[i]);
+    for (const st of sc.stages || []) if (inR(st.z)) push(st.z, 'stage', st);
     for (const w of sc.walkers) {
       let z = w.z0 + w.v * g.t;
       if (w.range) { const p = ((w.v * g.t) % (w.range * 2) + w.range * 2) % (w.range * 2); z = w.z0 + (p < w.range ? p : w.range * 2 - p); w.dirNow = p < w.range ? Math.sign(w.v) : -Math.sign(w.v); }
@@ -836,9 +959,13 @@
       if (inR(z) && z - cam.z < 160) push(z, 'walker', w, z);
     }
     if (inR(sc.dj.z)) { push(sc.dj.z, 'dj', sc.dj); }
+    for (const rv of sc.raves) if (!rv.main && inR(rv.z)) push(rv.z, 'rave', rv);
     if (inR(sc.dj.z - 6)) push(sc.dj.z - 6, 'arch', { text: 'DUSTY', kind: 'dusty' });
     if (inR(L)) push(L, 'arch', { text: 'ФИНИШ', kind: 'finish' });
-    if (inR(4)) push(4, 'arch', { text: 'СТАРТ', kind: 'start' });
+    if (inR(D.START_Z)) push(D.START_Z, 'arch', { text: 'СТАРТ', kind: 'start' });
+    const luzhZ = D.kmToZ(D.TRACK_KM[0]) - 1.5;
+    if (inR(luzhZ)) push(luzhZ, 'arch', { text: 'ЛУЖНИКИ', kind: 'luzh' });
+    for (const k of D.KM_MARKS) if (inR(D.kmToZ(k))) push(D.kmToZ(k), 'arch', { text: k + ' КМ', kind: 'km' });
     const objs = g.plan.objs;
     for (let i = Math.max(0, g.objIdx - 2); i < objs.length; i++) {
       const o = objs[i]; if (o.z > zMax) break;
@@ -849,7 +976,7 @@
     const vis = [];
     for (const rv of g.rivals) { const dz = rv.z - cam.z; if (dz > 0.8 && dz < 165) vis.push(rv); }
     vis.sort((a, b) => Math.abs(a.z - g.pz) - Math.abs(b.z - g.pz));
-    for (let i = 0; i < Math.min(14, vis.length); i++) push(vis[i].z, 'rival', vis[i]);
+    for (let i = 0; i < Math.min(24, vis.length); i++) push(vis[i].z, 'rival', vis[i]);
     if (g.pacerT > 0) push(g.pz + 2.6, 'pacer', null);
     push(g.pz, 'player', null);
     drawList.sort((a, b) => b.z - a.z);
@@ -880,8 +1007,10 @@
           ctx.restore(); break;
         }
         case 'dj': at(o.x); djBooth(ctx, time, musicLevel); ctx.restore(); break;
+        case 'rave': at(4.4); raveSmall(ctx, time); ctx.restore(); break;
+        case 'stage': at(o.x - 1.4); raveSmall(ctx, time); ctx.restore(); break;
         case 'arch': at(0); arch(ctx, o.text, o.kind, time); ctx.restore(); break;
-        case 'item': at(o.x); itemSprite(ctx, o.type, time, o.z); ctx.restore(); break;
+        case 'item': at(o.x); itemSprite(ctx, o.type, time, o.z, o.variant); ctx.restore(); break;
         case 'hf': {
           at(o.x); shadow(ctx, 0.3);
           personFront(ctx, { skin: '#f1c9a5', hair: '#5a3a22', shirt: PINK, shorts: '#1e1e28', shoes: '#fff', cap: LIME }, 'stand', time, o.z);
@@ -897,10 +1026,10 @@
         case 'obs': at(o.x); if (o.type !== 'puddle') shadow(ctx, o.type === 'dog' ? 0.35 : 0.5); obstacleSprite(ctx, o, time); ctx.restore(); break;
         case 'rival': {
           if (dz < cam.back - 1.2) break; // догнанных почти у камеры не рисуем
-          at(o.x); ctx.globalAlpha = a * clamp((dz - (cam.back - 1.2)) / 1.5, 0, 1); shadow(ctx, 0.32);
+          at(o.x, o.y); ctx.globalAlpha = a * clamp((dz - (cam.back - 1.2)) / 1.5, 0, 1); shadow(ctx, 0.32);
           runnerBack(ctx, o.look, o.phase, null, { bib: true });
           ctx.restore();
-          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05, dz), s, name: o.name, a, id: o.id });
+          if (dz < 70 && o.z > g.pz - 1) labels.push({ x: PX(o.x, dz), y: PY(2.05 + (o.y || 0), dz), s, name: o.star ? '★ ' + o.name : o.name, star: o.star, a, id: o.id });
           break;
         }
         case 'pacer': {
@@ -927,8 +1056,9 @@
     ctx.save(); ctx.translate(x, y0); ctx.scale(s, s);
     shadow(ctx, 0.38 / (1 + g.y * 0.6));
     ctx.restore();
-    // кофеин: цветной след
-    if (g.caffT > 0) {
+    // бустер: цветной след (кофеин — розовый, магний — зелёный, пуэр — янтарный)
+    if (g.boostT > 0) {
+      const bc = { caffeine: '255,46,147', magnesium: '57,226,122', puer: '255,155,46' }[g.boostKind] || '255,46,147';
       for (let i = 3; i >= 1; i--) {
         const dz2 = dz - i * 0.55; if (dz2 < 0.9) continue;
         const s2 = f / dz2;
@@ -938,7 +1068,7 @@
         ctx.restore();
       }
       const rg = ctx.createRadialGradient(x, PY(1, dz), 0, x, PY(1, dz), s * 1.3);
-      rg.addColorStop(0, 'rgba(255,46,147,0.32)'); rg.addColorStop(1, 'rgba(255,46,147,0)');
+      rg.addColorStop(0, 'rgba(' + bc + ',0.32)'); rg.addColorStop(1, 'rgba(' + bc + ',0)');
       ctx.fillStyle = rg; ctx.fillRect(x - s * 1.4, PY(2.4, dz), s * 2.8, s * 2.6);
     }
     ctx.save(); ctx.translate(x, PY(g.y, dz)); ctx.scale(s, s);
@@ -960,9 +1090,9 @@
       ctx.fillStyle = 'rgba(139,92,255,0.10)'; ctx.fill();
       ctx.restore();
     }
-    // магний: зелёные кольца восстановления
-    if (g.magT > 0) {
-      const p = 1 - g.magT / 1.4;
+    // магний: зелёные кольца
+    if (g.boostT > 0 && g.boostKind === 'magnesium') {
+      const p = (time * 0.8) % 1;
       ctx.save(); ctx.translate(x, PY(g.y, dz)); ctx.scale(s, s);
       for (let i = 0; i < 3; i++) {
         const q = (p + i / 3) % 1;
@@ -989,7 +1119,7 @@
       const amp = reduced ? 0 : size * 0.12;
       ctx.globalAlpha = lb.a;
       ctx.lineWidth = Math.max(2.5, size * 0.24);
-      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
       let i = 0;
       for (const ch of lb.name) {
         const cw = ctx.measureText(ch).width;
@@ -1004,10 +1134,10 @@
   function drawEffects(g, dt) {
     // линии скорости по краям
     const f2 = D.speedFactors(g);
-    const fast = !reduced && (g.caffT > 0 || f2.cadF * f2.resF > 1.12);
+    const fast = !reduced && (g.boostT > 0 || f2.cadF > 1.15);
     if (fast && speedLines.length < 26 && Math.random() < 0.8) {
       const side = Math.random() < 0.5 ? -1 : 1;
-      speedLines.push({ x: W2 + side * W * (0.3 + Math.random() * 0.2), y: H * (0.35 + Math.random() * 0.55), v: 0, side, life: 0.35, c: g.caffT > 0 ? (Math.random() < 0.5 ? PINK : LIME) : '#ffffff' });
+      speedLines.push({ x: W2 + side * W * (0.3 + Math.random() * 0.2), y: H * (0.35 + Math.random() * 0.55), v: 0, side, life: 0.35, c: g.boostT > 0 ? (Math.random() < 0.5 ? PINK : LIME) : '#ffffff' });
     }
     ctx.lineCap = 'round';
     for (let i = speedLines.length - 1; i >= 0; i--) {
@@ -1031,9 +1161,8 @@
     // мягкая вспышка фотографа
     if (g.flashT > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (g.flashT / 0.4) * (reduced ? 0.25 : 0.55) + ')'; ctx.fillRect(0, 0, W, H); }
     // зелёное восстановление / мягкий сигнал столкновения
-    if (g.magT > 0 || g.hitT > 0) {
-      const col = g.magT > 0 ? '57,226,122' : '255,122,26';
-      const a = g.magT > 0 ? g.magT / 1.4 * 0.35 : g.hitT / 0.45 * 0.3;
+    if (g.hitT > 0) {
+      const col = '255,122,26', a = g.hitT / 0.45 * 0.3;
       const vg = ctx.createRadialGradient(W2, H * 0.55, Math.min(W, H) * 0.3, W2, H * 0.55, Math.max(W, H) * 0.75);
       vg.addColorStop(0, 'rgba(' + col + ',0)'); vg.addColorStop(1, 'rgba(' + col + ',' + a + ')');
       ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);

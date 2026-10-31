@@ -10,7 +10,12 @@
   const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
 
   let g = null, state = 'menu', paused = false, last = 0, hudT = 0, finishDelay = 0, countT = 0, countShown = -1;
-  let roster = { participants: D.demoParticipants(), demo: true, stats: null, file: '' };
+  // соперники: club — встроенный список клуба (по умолчанию), demo — вымышленные прозвища, file — загруженная выгрузка
+  const clubRoster = () => ({ participants: D.clubParticipants(), mode: 'club', stats: null, file: '' });
+  const demoRoster = () => ({ participants: D.demoParticipants(), mode: 'demo', stats: null, file: '' });
+  let roster = clubRoster();
+  // соперники бегут по своей дорожке слева; ?lane=3 в адресе — прежний режим, где они бегут по полосам игрока
+  const rivalLane = !/[?&]lane=3(&|$)/.test(G.location.search);
   const reduceMQ = G.matchMedia ? G.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /* ---------- участники ---------- */
@@ -19,32 +24,36 @@
       const raw = G.localStorage.getItem(STORE);
       if (raw) {
         const v = JSON.parse(raw);
-        if (v && Array.isArray(v.participants)) roster = { participants: v.participants.slice(0, 100).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 24), count: p.count | 0 })), demo: false, stats: v.stats, file: v.file || '' };
+        if (v && v.mode === 'demo') roster = demoRoster();
+        else if (v && Array.isArray(v.participants)) roster = { participants: v.participants.slice(0, 100).map((p) => ({ id: String(p.id), name: String(p.name).slice(0, 24), count: p.count | 0 })), mode: 'file', stats: v.stats, file: v.file || '' };
       }
-    } catch (e) { /* хранилище недоступно — остаётся демо */ }
+    } catch (e) { /* хранилище недоступно — остаётся список клуба */ }
   }
   function saveRoster() {
     try {
-      if (roster.demo) G.localStorage.removeItem(STORE);
+      if (roster.mode === 'club') G.localStorage.removeItem(STORE);
+      else if (roster.mode === 'demo') G.localStorage.setItem(STORE, JSON.stringify({ mode: 'demo' }));
       else G.localStorage.setItem(STORE, JSON.stringify({ participants: roster.participants, stats: roster.stats, file: roster.file }));
     } catch (e) { /* без сохранения */ }
   }
   function renderRoster() {
     const n = roster.participants.length;
-    $('partSummary').innerHTML = roster.demo
-      ? 'Соперники: <span class="mode-tag">демо-режим</span>'
+    $('partSummary').innerHTML = roster.mode === 'demo' ? 'Соперники: <span class="mode-tag">демо-режим</span>'
+      : roster.mode === 'club' ? 'Соперники: <span class="mode-tag real">клуб, ' + n + '</span>'
       : 'Соперники: <span class="mode-tag real">загружено ' + n + '</span>';
     const st = roster.stats;
-    $('partStatus').textContent = roster.demo
+    $('partStatus').textContent = roster.mode === 'demo'
       ? 'Сейчас на трассе 100 вымышленных бегунов с шуточными прозвищами. Это не настоящие участники и не рейтинг клуба.'
+      : roster.mode === 'club'
+      ? 'На трассе ' + n + ' участников клуба «Пыльные Гантели» — первые по числу заказов на лонги DDLONG (выгрузка ' + D.CLUB_ROSTER_DATE + '; заказ — это регистрация, а не подтверждённое посещение). Порядок на старте и темп в каждом забеге случайные. Ближе к финишу на трассу выходят звёзды бега России.'
       : 'Из файла «' + roster.file + '»: строк ' + (st ? st.rows : '?') + ', записей клуба ' + (st ? st.clubRows : '?') + ', уникальных участников ' + (st ? st.unique : '?') + '. В забеге — первые ' + n + ' по числу посещённых лонгов.' +
         (st && st.mode === 'events' && !st.attendedKnown ? ' В файле нет колонки attended, поэтому посещения не отделены от регистраций.' : '') +
         (st && st.skippedNoId ? ' Пропущено строк без ID: ' + st.skippedNoId + '.' : '');
     const ol = $('partList'); ol.textContent = '';
-    if (!roster.demo) {
-      roster.participants.forEach((p) => { const li = document.createElement('li'); li.textContent = p.name + ' — ' + p.count; ol.appendChild(li); });
+    if (roster.mode !== 'demo') {
+      roster.participants.forEach((p) => { const li = document.createElement('li'); li.textContent = p.name + (roster.mode === 'file' ? ' — ' + p.count : ''); ol.appendChild(li); });
     }
-    ol.style.display = roster.demo ? 'none' : '';
+    ol.style.display = roster.mode === 'demo' ? 'none' : '';
   }
   $('fileInput').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
@@ -55,7 +64,7 @@
       try {
         const res = D.importParticipants(String(fr.result), file.name, 100);
         if (!res.participants.length) throw new Error('В файле не нашлось участников клуба «Пыльные Гантели» с ID.');
-        roster = { participants: res.participants, demo: false, stats: res.stats, file: file.name.slice(0, 60) };
+        roster = { participants: res.participants, mode: 'file', stats: res.stats, file: file.name.slice(0, 60) };
         saveRoster(); renderRoster();
       } catch (err) { $('partError').textContent = err.message; }
       e.target.value = '';
@@ -63,7 +72,8 @@
     fr.onerror = () => { $('partError').textContent = 'Не удалось прочитать файл.'; };
     fr.readAsText(file, 'utf-8');
   });
-  $('btnDemo').addEventListener('click', () => { roster = { participants: D.demoParticipants(), demo: true, stats: null, file: '' }; saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('btnDemo').addEventListener('click', () => { roster = demoRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
+  $('btnClub').addEventListener('click', () => { roster = clubRoster(); saveRoster(); renderRoster(); $('partError').textContent = ''; });
 
   /* ---------- звук ---------- */
   function soundUI() {
@@ -89,10 +99,10 @@
 
   function startRun() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0);
+    g = D.newGame(roster.participants, (Date.now() ^ (Math.random() * 1e9)) >>> 0, { rivalLane });
     paused = false; finishDelay = 0; hudT = 0;
-    $('toasts').textContent = '';
-    state = 'countdown'; countT = 0; countShown = -1;
+    $('toasts').textContent = ''; clearBig();
+    state = 'countdown'; countT = 0; countShown = -1; lastStep = 0;
     show(null);
     document.body.classList.add('playing');
     buildTrackTicks();
@@ -107,10 +117,10 @@
     if (!p) last = performance.now();
   }
   function toMenu() {
-    state = 'menu'; paused = false; g = null;
+    state = 'menu'; paused = false; g = null; clearBig();
     document.body.classList.remove('playing');
     $('countdown').classList.remove('show');
-    A.updateMusic(0); A.setPaused(false);
+    A.updateMusic(0); A.updateCrowd(0); A.setPaused(false);
     show('start');
   }
   $('btnStart').addEventListener('click', startRun);
@@ -140,21 +150,26 @@
     $('hDist').textContent = km.toFixed(1).replace('.', ',');
     $('hTime').textContent = fmt(g.finished ? g.result : D.raceTime(g));
     $('hPos').textContent = g.position + '/' + g.total;
-    meter('mEnergy', Math.round(g.energy), g.energy, g.energy < 25);
-    meter('mCal', Math.round(g.cal), g.cal, g.cal < 25);
-    meter('mWater', Math.round(g.water), g.water, g.water < 25);
-    meter('mHr', Math.round(g.hr), (g.hr - 60) / 1.4, g.hr > 175);
-    meter('mCad', g.cad, (g.cad - D.CAD.min) / (D.CAD.max - D.CAD.min) * 100, g.cad >= 192);
-    $('cCad').textContent = g.cad;
+    // запасы — в секундах игры; за 5 с до конца шкала жёлтая, пустая — красная
+    for (const [id, k] of [['mGel', 'gel'], ['mDrink', 'drink'], ['mFood', 'food']]) {
+      meter(id, Math.ceil(g[k]) + ' с', g[k] / D.SUPPLY[k] * 100, g.warn[k]);
+      $(id).classList.toggle('empty', g[k] <= 0);
+    }
+    meter('mHr', Math.round(g.hr), (g.hr - 60) / 1.4, g.hr > 180);
+    // фактический каденс: с бустером, пустыми запасами и сбитым темпом
+    meter('mCad', g.cadEff, (g.cadEff - 120) / (D.CAD.boost - 120) * 100, g.cadEff < g.cad);
+    $('cCad').textContent = g.cadEff;
     $('hDistrict').textContent = D.DISTRICTS[g.district].name;
     $('hProg').style.width = (km / D.KM_TOTAL * 100) + '%';
-    $('wEnergy').classList.toggle('show', g.warn.energy);
-    $('wCal').classList.toggle('show', g.warn.cal);
-    $('wWater').classList.toggle('show', g.warn.water);
+    for (const [id, k, what] of [['wGel', 'gel', 'гель'], ['wDrink', 'drink', 'питьё'], ['wFood', 'food', 'еда']]) {
+      const el = $(id), out = g[k] <= 0;
+      el.classList.toggle('show', g.warn[k]); el.classList.toggle('out', out);
+      if (g.warn[k]) el.textContent = out ? 'Нет: ' + what + ' — каденс −' + D.CAD.empty : what[0].toUpperCase() + what.slice(1) + ' закончится через ' + Math.ceil(g[k]) + ' с';
+    }
     let chips = '';
-    if (g.caffT > 0) chips += '<span class="chip c-caff">Кофеин ' + Math.ceil(g.caffT) + ' с</span>';
+    if (g.boostT > 0) chips += '<span class="chip c-caff">' + D.ITEMS.boost.variants.find((v) => v.id === g.boostKind).name + ' · ' + D.CAD.boost + ' · ' + Math.ceil(g.boostT) + ' с</span>';
     if (g.pacerT > 0) chips += '<span class="chip c-pacer">Пейсер ' + Math.ceil(g.pacerT) + ' с</span>';
-    if (g.slowT > 0) chips += '<span class="chip c-slow">Замедление ' + Math.ceil(g.slowT) + ' с</span>';
+    if (g.hitPenT > 0) chips += '<span class="chip c-slow">Темп −' + g.hitPen + ' · ' + Math.ceil(g.hitPenT) + ' с</span>';
     if (chips !== lastChips || force) { $('chips').innerHTML = chips; lastChips = chips; }
   }
 
@@ -169,12 +184,46 @@
     setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 2350);
   }
 
+  // Крупное предупреждение о запасе: всплывает по центру и улетает с уменьшением в свою плашку под HUD.
+  // Несколько подряд — по очереди: следующее появляется, когда предыдущее уже улетает.
+  const bigQueue = [];
+  let bigBusy = false;
+  function bigWarn(res, out) { bigQueue.push({ res, out }); if (!bigBusy) nextBig(); }
+  function clearBig() {
+    bigQueue.length = 0; bigBusy = false;
+    for (const el of document.querySelectorAll('.bigwarn')) el.remove();
+  }
+  function nextBig() {
+    const it = bigQueue.shift();
+    if (!it || !g || state === 'done' || state === 'menu') { bigBusy = false; return; }
+    // пока ждало очереди, запас уже пополнили (или он кончился — тогда покажем «нет»)
+    if (it.out ? g[it.res] > 0 : !g.warn[it.res] || g[it.res] <= 0) return nextBig();
+    bigBusy = true;
+    const w = { gel: ['ГЕЛЬ', 'ГЕЛЯ', 'гель'], drink: ['ПИТЬЁ', 'ПИТЬЯ', 'питьё'], food: ['ЕДА', 'ЕДЫ', 'еду'] }[it.res];
+    const el = document.createElement('div');
+    el.className = 'bigwarn' + (it.out ? ' out' : '');
+    const b = document.createElement('b'); b.textContent = it.out ? 'НЕТ ' + w[1] : w[0] + ' — 5 СЕКУНД'; el.appendChild(b);
+    const s = document.createElement('span'); s.textContent = it.out ? 'каденс −' + D.CAD.empty + ' — подбери ' + w[2] : 'скоро закончится — возьми ' + w[2]; el.appendChild(s);
+    document.body.appendChild(el);
+    // цель полёта — центр плашки этого запаса; анимацию запускаем сразу, без ожидания кадра (на слабых устройствах кадр бывает долгим)
+    const pill = $({ gel: 'wGel', drink: 'wDrink', food: 'wFood' }[it.res]);
+    const r = el.getBoundingClientRect(), p = pill.getBoundingClientRect();
+    if (p.width) {
+      el.style.setProperty('--tx', (p.left + p.width / 2 - (r.left + r.width / 2)) + 'px');
+      el.style.setProperty('--ty', (p.top + p.height / 2 - (r.top + r.height / 2)) + 'px');
+    }
+    el.classList.add('go');
+    el.addEventListener('animationend', () => el.remove());
+    setTimeout(() => el.remove(), 6000); // если анимация так и не запустилась
+    setTimeout(nextBig, 1300);
+  }
+
   function handleEvents() {
     for (const e of g.events) {
       switch (e.kind) {
         case 'item':
           toast(e.title, e.sub, 'good');
-          A.play(e.type === 'caffeine' ? 'boost' : e.type === 'highfive' ? 'clap' : e.type === 'magnesium' || e.type === 'pacer' ? 'bonus' : 'pickup');
+          A.play(e.type === 'boost' ? 'boost' : e.type === 'highfive' ? 'clap' : e.type === 'pacer' ? 'bonus' : 'pickup');
           if (G.navigator && navigator.vibrate && !reduced()) try { navigator.vibrate(12); } catch (x) { /* нет вибрации */ }
           break;
         case 'hit':
@@ -185,6 +234,10 @@
         case 'shield': toast(e.title, e.sub, 'good'); A.play('shield'); break;
         case 'district': toast(e.title, '', 'info'); break;
         case 'info': toast(e.title, e.sub, 'info'); break;
+        case 'km': toast(e.title, e.sub, 'info'); A.play('bonus'); break;
+        case 'warn': updateHUD(true); bigWarn(e.res, false); A.play('tick'); break;
+        case 'empty': updateHUD(true); bigWarn(e.res, true); A.play('hit'); break;
+        case 'star': toast(e.title, e.sub, 'star'); A.play('bonus'); break;
         case 'jump': A.play('jump'); break;
         case 'finish': A.play('finish'); break;
       }
@@ -192,9 +245,25 @@
     g.events.length = 0;
   }
 
+  // шаг героя — звук на каждой смене опорной ноги (в прыжке тихо)
+  let lastStep = 0;
+  function stepSound(track) {
+    const n = Math.floor(g.phase / Math.PI);
+    if (n !== lastStep) { lastStep = n; if (g.y < 0.05) A.step(track, g.hr, n); }
+  }
+  // громкость болельщиков: сколько людей рядом на набережной, у финиша — громче
+  function crowdLevel(g) {
+    const f = g.scenery.fans, z0 = g.pz - 25;
+    let lo = 0, hi = f.length, n = 0;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (f[m].z < z0) lo = m + 1; else hi = m; }
+    for (let i = lo; i < f.length && f[i].z < g.pz + 45; i++) n++;
+    const toEnd = D.WORLD_LEN - g.pz;
+    return D.clamp(0.22 + n / 28 + (toEnd < 120 ? (1 - toEnd / 120) * 0.6 : 0), 0, 1);
+  }
+
   function showFinish() {
     state = 'done';
-    A.updateMusic(0);
+    A.updateMusic(0); A.updateCrowd(0);
     $('fTime').textContent = fmt(g.result);
     const gm = Math.floor(g.finishT / 60), gs = Math.floor(g.finishT % 60);
     $('fFormula').textContent = 'Забег занял ' + gm + ' мин ' + String(gs).padStart(2, '0') + ' с игры — это ' + fmt(g.finishT * D.TIME_SCALE) + ' марафона (секунда игры = минута). Штрафы +' + fmtMS(g.penalty) + ', бонусы −' + fmtMS(g.bonus) + '.' +
@@ -203,14 +272,15 @@
     $('fOvt').textContent = g.overtakes;
     $('fBonus').textContent = '−' + fmtMS(g.bonus);
     $('fPen').textContent = '+' + fmtMS(g.penalty);
-    const names = { gel: 'гели', banana: 'еда', water: 'вода', breath: 'дыхание', pacer: 'пейсер', caffeine: 'кофеин', magnesium: 'магний', highfive: '«дай пять»' };
-    const hn = { puddle: 'лужи', fence: 'ограждения', barrier: 'заграждения', photographer: 'фотографы', dog: 'собаки', runner: 'бегуны' };
+    const names = { gel: 'гели', drink: 'питьё', food: 'еда', boost: 'бустеры', pacer: 'пейсер', highfive: '«дай пять»' };
+    const hn = { puddle: 'лужи', fanbarrier: 'фан-барьеры', photographer: 'фотографы', dog: 'собаки', scooter: 'самокатчики', volunteer: 'волонтёры', runner: 'бегуны' };
     const it = Object.keys(g.stats.items).map((k) => names[k] + ' ×' + g.stats.items[k]).join(', ');
     const ht = Object.keys(g.stats.hits).map((k) => hn[k] + ' ×' + g.stats.hits[k]).join(', ');
     $('fItems').textContent = 'Подобрано: ' + (it || 'ничего') + '.';
     $('fHits').textContent = 'Столкновения: ' + (ht || 'ни одного') + (g.stats.shield ? '; пейсер защитил ×' + g.stats.shield : '') + '.';
     $('fNote').textContent = (g.total > 1 ? 'Место считается по итоговому времени с бонусами и штрафами. ' : 'Соперников нет — ты бежишь один. ') +
-      (roster.demo ? 'Соперники — демонстрационный список вымышленных бегунов.' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (roster.mode === 'demo' ? 'Соперники — демонстрационный список вымышленных бегунов.' : roster.mode === 'club' ? 'Соперники — участники клуба «Пыльные Гантели».' : 'Соперники загружены из файла «' + roster.file + '».') +
+      (g.starsOn ? ' Звёзд бега позади: ' + g.stats.stars + ' из ' + D.STARS.length + ' — в место они не входят.' : '') +
       ' Трасса — художественная адаптация, не GPS-копия.';
     show('finish');
     document.body.classList.remove('playing');
@@ -284,13 +354,22 @@
             A.play(n > 0 ? 'tick' : 'go');
           }
           if (countT >= 1.8) { state = 'run'; setTimeout(() => { if (state !== 'countdown') $('countdown').classList.remove('show'); }, 450); }
+          A.updateCrowd(0.7); // старт: болельщики шумят
           R.render(g, dt, { musicLevel: 0 });
         } else if (state === 'run') {
           D.update(g, dt);
           handleEvents();
-          const djZ = D.kmToZ(D.DJ_KM);
-          const lvl = Math.pow(D.clamp(1 - Math.abs(g.pz - djZ) / 260, 0, 1), 1.5);
+          // техно DJ KIM: в Лужниках — на всю зону поддержки, на точках Дасти — слышно издалека, на малых — тише
+          let lvl = 0;
+          for (const k of D.RAVE_KM) {
+            const main = k === D.DJ_KM, range = main ? 420 : 220;
+            lvl = Math.max(lvl, Math.pow(D.clamp(1 - Math.abs(g.pz - D.kmToZ(k)) / range, 0, 1), 1.5) * (main ? 1 : 0.65));
+          }
+          const zk = D.zToKm(g.pz);
+          lvl = Math.max(lvl, D.clamp(1 - Math.max(D.TRACK_KM[0] - zk, zk - D.TRACK_KM[1], 0) / 0.6, 0, 1));
           A.updateMusic(lvl);
+          A.updateCrowd(crowdLevel(g));
+          stepSound(zk >= D.TRACK_KM[0] && zk <= D.TRACK_KM[1]);
           if (g.finished) { state = 'finishing'; finishDelay = 0; }
           R.render(g, dt, { musicLevel: lvl });
           hudT -= dt; if (hudT <= 0) { updateHUD(); hudT = 0.1; }
@@ -298,7 +377,7 @@
           // после финиша бегун плавно сбавляет; мир для результата уже зафиксирован
           finishDelay += dt;
           g.speed *= Math.pow(0.25, dt); g.pz += g.speed * dt; g.phase += dt * 6;
-          A.updateMusic(0);
+          A.updateMusic(0); A.updateCrowd(1); stepSound(false);
           R.render(g, dt, { musicLevel: 0 });
           if (finishDelay > 1.4) { updateHUD(true); showFinish(); }
         } else if (state === 'done') {

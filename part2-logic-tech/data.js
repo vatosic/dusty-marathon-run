@@ -8,30 +8,44 @@
   D.TIME_SCALE = 60;           // 1 секунда игры = 1 минута марафона (4:04 игры → 4:04:00)
   D.RECORD_SEC = 2 * 3600;     // предел: быстрее 2:00:00 финишировать нельзя (рекорд-лимит)
   D.LANES = [-1.45, 0, 1.45];
+  // Тестовый режим: соперники бегут по отдельной четвёртой дорожке слева (−3,95…−2,45), не заходя в полосы игрока
+  D.RIVAL_LANE = { x: -3.2, left: -3.95, spread: 0.8 };
+  D.START_Z = 14; // стартовая арка; масс-старт — все в коридоре перед ней
   D.kmToZ = (km) => (km / D.KM_TOTAL) * D.WORLD_LEN;
   D.zToKm = (z) => (z / D.WORLD_LEN) * D.KM_TOTAL;
 
   // Художественная адаптация маршрута: последовательность и характер районов, не GPS-копия.
   D.DISTRICTS = [
-    { id: 'krasnopresnenskaya', name: 'Краснопресненская набережная', from: 0, to: 7,
+    { id: 'krasnopresnenskaya', styles: [['modern', 4], ['stalin', 3], ['panel', 3]], name: 'Краснопресненская набережная', from: 0, to: 7,
       palette: ['#8fa9c4', '#b9c6d2', '#6f8ba6', '#d6dde4', '#a2b6ca', '#5d7690'], hMin: 18, hMax: 40, trees: 0.55, ground: '#7d8a7a', gap: 0.12 },
-    { id: 'smolenskaya', name: 'Смоленская набережная', from: 7, to: 10,
+    { id: 'smolenskaya', styles: [['stalin', 7], ['classic', 3]], name: 'Смоленская набережная', from: 7, to: 10,
       palette: ['#d8c3a0', '#cdb48c', '#e3d2b4', '#bfa27a', '#c9b08f'], hMin: 20, hMax: 34, trees: 0.6, ground: '#808b72', gap: 0.08 },
-    { id: 'rostovskaya', name: 'Ростовская набережная', from: 10, to: 12,
+    { id: 'rostovskaya', styles: [['merchant', 8], ['classic', 2]], name: 'Ростовская набережная', from: 10, to: 12,
       palette: ['#f0d58a', '#e8b7a0', '#cfe0c8', '#f3e6c8', '#e6a77f', '#f5c9c9'], hMin: 10, hMax: 18, trees: 0.7, ground: '#7a8b6c', gap: 0.06 },
-    { id: 'savvinskaya', name: 'Саввинская набережная', from: 12, to: 18,
+    { id: 'savvinskaya', styles: [['brick', 5], ['merchant', 2.5], ['stalin', 2.5]], name: 'Саввинская набережная', from: 12, to: 18,
       palette: ['#b5523b', '#c96a4f', '#e2d6c2', '#8e3d2c', '#d7c3a8', '#a9b6c0'], hMin: 12, hMax: 26, trees: 0.6, ground: '#7c866c', gap: 0.1 },
-    { id: 'novodevichya', name: 'Новодевичья набережная', from: 18, to: 22,
+    { id: 'novodevichya', styles: [['merchant', 5], ['classic', 5]], name: 'Новодевичья набережная', from: 18, to: 22,
       palette: ['#e8e2d0', '#c9b99b', '#e6d4c3'], hMin: 7, hMax: 13, trees: 1, ground: '#5f8a4e', gap: 0.45 },
-    { id: 'luzhnetskaya', name: 'Лужнецкая набережная · Лужники', from: 22, to: 29,
+    { id: 'luzhnetskaya', styles: [['sport', 6], ['panel', 4]], name: 'Лужнецкая набережная · Лужники', from: 22, to: 29,
       palette: ['#e9eef2', '#cfd8dc', '#d4e3d0'], hMin: 6, hMax: 11, trees: 0.95, ground: '#5d8f4c', gap: 0.5 },
-    { id: 'frunzenskaya', name: 'Фрунзенская набережная', from: 29, to: 35,
+    { id: 'frunzenskaya', styles: [['stalin', 8], ['classic', 2]], name: 'Фрунзенская набережная', from: 29, to: 35,
       palette: ['#d9c9a3', '#c2b08a', '#e6d8b6', '#a99a7c', '#d8bfa0'], hMin: 18, hMax: 30, trees: 0.75, ground: '#77866a', gap: 0.06 },
-    { id: 'prechistenskaya', name: 'Пречистенская набережная', from: 35, to: 39,
+    { id: 'prechistenskaya', styles: [['classic', 6], ['merchant', 4]], name: 'Пречистенская набережная', from: 35, to: 39,
       palette: ['#f2e2c4', '#e9cfa5', '#f4f0e6', '#d7b98e', '#f0d2cf'], hMin: 10, hMax: 20, trees: 0.6, ground: '#7a8670', gap: 0.08 },
-    { id: 'kremlevskaya', name: 'Кремлёвская набережная', from: 39, to: 42.195,
+    { id: 'kremlevskaya', styles: [['classic', 1]], name: 'Кремлёвская набережная', from: 39, to: 42.195,
       palette: ['#b23a2c'], hMin: 7, hMax: 7, trees: 0.5, ground: '#6f8a5a', gap: 0 }
   ];
+
+  // Архитектурные стили набережных: высоты и палитры (стиль района задаёт styles в D.DISTRICTS)
+  D.STYLES = {
+    stalin: { h: [18, 32], pal: ['#d8c3a0', '#cdb48c', '#e3d2b4', '#c9b08f', '#d9c9a3', '#e6d8b6', '#bfa27a'] },
+    classic: { h: [10, 18], pal: ['#f2e2c4', '#efe2b8', '#f4f0e6', '#e9cfa5', '#f0d2cf', '#d7e3ea'] },
+    merchant: { h: [8, 14], pal: ['#f0d58a', '#e8b7a0', '#cfe0c8', '#f3e6c8', '#e6a77f', '#f5c9c9', '#c9d9e6'] },
+    brick: { h: [10, 20], pal: ['#a9452f', '#b5523b', '#8e3d2c', '#c96a4f', '#9c4a36'] },
+    modern: { h: [26, 46], pal: ['#8fa9c4', '#7d9bb8', '#a2b6ca', '#6f8ba6', '#b9c6d2'] },
+    panel: { h: [16, 30], pal: ['#e3e1dc', '#d6d9dc', '#e9e4d8', '#cfd6dc'] },
+    sport: { h: [7, 12], pal: ['#e9eef2', '#f4f6f6', '#dfe8e4'] }
+  };
 
   D.findDistrict = function (km) {
     for (let i = D.DISTRICTS.length - 1; i >= 0; i--) if (km >= D.DISTRICTS[i].from) return i;
@@ -40,18 +54,30 @@
 
   D.LANDMARKS = [
     { km: 2.6, kind: 'wtc', x: -55 },
-    { km: 5.3, kind: 'whitehouse', x: -62 },
+    { km: 5.3, kind: 'whitehouse', x: -50 },
     { km: 8.6, kind: 'mid', x: -64 },
     { km: 10.9, kind: 'rostov', x: -42 },
     { km: 14.6, kind: 'silk', x: -50 },
     { km: 20.0, kind: 'novodevichy', x: -68 },
     { km: 25.6, kind: 'luzhniki', x: -78 },
-    { km: 32.8, kind: 'mod', x: -60 },
-    { km: 37.4, kind: 'hhs', x: -62 },
+    { km: 32.8, kind: 'mod', x: -47 },
+    { km: 37.4, kind: 'hhs', x: -45 },
     { km: 41.0, kind: 'palace', x: -66 }
+  ];
+  // Ориентиры на том берегу и на реке (только в 3D)
+  D.LANDMARKS_FAR = [
+    { km: 6.0, kind: 'ukraina', x: 104 },
+    { km: 36.4, kind: 'petr', x: 58 },
+    { km: 38.2, kind: 'krasny', x: 96 },
+    { km: 40.6, kind: 'domnab', x: 98 }
   ];
   D.BRIDGES = [1.4, 7.4, 11.8, 17.2, 22.6, 27.0, 30.6, 34.6, 38.6, 41.7];
   D.DJ_KM = 24;
+  D.BPM = 132; // техно-сет DJ KIM и светомузыка идут в одном темпе
+  // Точки поддержки Дасти — рейв со светомузыкой; на главной (24 км, Лужники) играет DJ KIM
+  D.RAVE_KM = [11, 24, 33.5];
+  D.TRACK_KM = [22.6, 27.0]; // Лужники: беговое покрытие вместо асфальта (между мостами)
+  D.KM_MARKS = [5, 10, 15, 20, 25, 30, 35, 40];
 
   D.SIGNS = ['ДАВАЙ, ДАСТИ!', 'ПЫЛЬНЫЕ ГАНТЕЛИ', 'DUSTY', 'ТЫ УЖЕ КРАСАВЧИК', 'ГЕЛЬ СЪЕЛ?', 'БЕГИ, МЫ В ТЕБЯ ВЕРИМ', 'DUSTY DUMBBELLS', 'ЕЩЁ ЧУТЬ-ЧУТЬ'];
 
@@ -75,6 +101,35 @@
     });
     return out;
   };
+
+  /* Звёзды бега на последних километрах: известные бегуны России по открытым источникам (новости ВФЛА-стартов,
+     Казанский и Московский марафоны, чемпионат России 2026). Подписи — только подтверждённые факты; результатов
+     за них игра не придумывает: в место и итоговое время звёзды не входят. kind: sprint / mid / long — кого догнать проще. */
+  // секунды игры до финиша (× 60 = время марафона): звёзды 2:05–2:29, клуб равномерно 2:30–4:00
+  D.STARS_T = [125, 149];
+  D.CLUB_T = [150, 240];
+  D.STARS = [
+    { name: 'Николай Грудковский', female: false, kind: 'sprint', tag: 'чемпион России на 100 м, 2026' },
+    { name: 'Юлия Караваева', female: true, kind: 'sprint', tag: 'чемпионка России на 100 м, 2026' },
+    { name: 'Вера Филатова', female: true, kind: 'sprint', tag: 'чемпионка России на 200 м, 2026' },
+    { name: 'Константин Крылов', female: false, kind: 'sprint', tag: 'один из сильнейших спринтеров России' },
+    { name: 'Виктория Максимова', female: true, kind: 'sprint', tag: 'призёр чемпионата России на 100 и 200 м, 2026' },
+    { name: 'Дарья Осипова', female: true, kind: 'sprint', tag: 'бронза чемпионата России на 100 м, 2026' },
+    { name: 'Алексей Данилов', female: false, kind: 'sprint', tag: 'чемпион России на 400 м, 2026' },
+    { name: 'Кирилл Анисимов', female: false, kind: 'mid', tag: 'чемпион России на 800 м, 2026' },
+    { name: 'Егор Лимонов', female: false, kind: 'mid', tag: 'чемпион России на 1500 м, 2026' },
+    { name: 'Сергей Дубровский', female: false, kind: 'mid', tag: 'призёр чемпионата России на 800 и 1500 м, 2026' },
+    { name: 'Лилия Мендаева', female: true, kind: 'mid', tag: 'чемпионка России в помещении на 1500 и 3000 м' },
+    { name: 'Ольга Вовк', female: true, kind: 'mid', tag: 'стайер, 5000 м' },
+    { name: 'Светлана Аплачкина', female: true, kind: 'mid', tag: 'рекорд России на 10 км по шоссе' },
+    { name: 'Сергей Шаров', female: false, kind: 'mid', tag: 'победитель Казанского марафона на 10 км' },
+    { name: 'Луиза Дмитриева', female: true, kind: 'long', tag: 'победительница Московского марафона 2023' },
+    { name: 'Искандер Ядгаров', female: false, kind: 'long', tag: 'победитель Московского марафона' },
+    { name: 'Степан Киселёв', female: false, kind: 'long', tag: 'победитель Московского и Казанского марафонов' },
+    { name: 'Ринас Ахмадеев', female: false, kind: 'long', tag: 'призёр Московского полумарафона 2026' },
+    { name: 'Дмитрий Неделин', female: false, kind: 'long', tag: 'чемпион России по марафону 2025' },
+    { name: 'Владимир Никитин', female: false, kind: 'long', tag: 'рекордсмен России в марафоне' }
+  ];
 
   const normClub = (s) => String(s == null ? '' : s)
     .toLowerCase().replace(/ё/g, 'е').replace(/[«»"'“”„]/g, ' ')

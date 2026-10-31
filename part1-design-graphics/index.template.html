@@ -52,8 +52,8 @@ body.playing #hud { display: flex; }
 .meter .lab em { font-style: normal; color: var(--fg); font-weight: 700; font-variant-numeric: tabular-nums; }
 .bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.16); overflow: hidden; margin-top: 3px; }
 .bar i { display: block; height: 100%; width: 50%; border-radius: 4px; transition: width .2s linear; }
-.m-energy i { background: var(--pink); } .m-cal i { background: #ffd23f; } .m-water i { background: #3fb7ff; } .m-hr i { background: #ff5a5a; } .m-cad i { background: var(--lime); }
-.meter.low .lab em { color: #ffb36b; }
+.m-gel i { background: var(--pink); } .m-food i { background: #ffd23f; } .m-drink i { background: #3fb7ff; } .m-hr i { background: #ff5a5a; } .m-cad i { background: var(--lime); }
+.meter.low .lab em { color: #ffb36b; } .meter.empty .lab em { color: #ff6b6b; } .meter.empty .bar { box-shadow: inset 0 0 0 1px #ff6b6b; }
 .route { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-size: 12px; }
 .route b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58vw; }
 .track { position: relative; height: 6px; background: rgba(255,255,255,0.16); border-radius: 4px; }
@@ -67,10 +67,27 @@ body.playing #hud { display: flex; }
 .toast { text-align: center; padding: 5px 14px 6px; border-radius: 14px; background: var(--panel-strong); animation: toast 2.3s ease-out forwards; max-width: 92vw; }
 .toast b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(14px, 4.2vw, 18px); line-height: 1.15; }
 .toast span { display: block; font-size: 12px; color: var(--muted); }
-.toast.good b { color: var(--good); } .toast.bad b { color: var(--bad); } .toast.info b { color: #fff; }
+.toast.good b { color: var(--good); } .toast.bad b { color: var(--bad); } .toast.info b { color: #fff; } .toast.star b { color: #ffd23f; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 10% { opacity: 1; transform: translateY(0); } 75% { opacity: 1; transform: translateY(-4px); } 100% { opacity: 0; transform: translateY(-10px); } }
 #warns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .warn { display: none; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9px; line-height: 1.3; background: #ffd23f; color: var(--ink); }
+.warn.out { background: #ff5a5a; color: #fff; }
+/* крупное предупреждение о запасе: всплывает по центру и улетает с уменьшением в плашку под HUD */
+.bigwarn { position: fixed; left: 50%; top: 25%; z-index: 7; transform: translate(-50%, -50%) scale(0.6); opacity: 0; text-align: center; pointer-events: none;
+  padding: 9px 16px 10px; border-radius: 16px; background: #ffd23f; color: var(--ink); box-shadow: 0 8px 28px rgba(0,0,0,0.3); width: max-content; max-width: 86vw; }
+.bigwarn b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(19px, 5.8vw, 34px); line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance; }
+.bigwarn span { display: block; font-size: clamp(11px, 3vw, 15px); font-weight: 700; margin-top: 3px; }
+.bigwarn.out { background: #ff5a5a; color: #fff; }
+.bigwarn.go { animation: bigwarn 2.4s linear forwards; }
+/* всплывает, ~0,9 с держится, затем с разгоном улетает с уменьшением в свою плашку (--tx/--ty задаёт main.js) */
+@keyframes bigwarn {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); animation-timing-function: ease-out; }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  55% { opacity: 1; transform: translate(-50%, -50%) scale(1); animation-timing-function: ease-in; }
+  92% { opacity: 0.95; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.22); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, -30vh))) scale(0.2); }
+}
 .warn.show { display: block; }
 
 /* ---------- управление ---------- */
@@ -165,6 +182,8 @@ details.part[open] summary::after { content: " ▴"; }
   .toast { animation: toastR 2.3s linear forwards; }
   @keyframes toastR { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
   .bar i { transition: none; }
+  .bigwarn.go { animation: bigwarnR 2.4s linear forwards; }
+  @keyframes bigwarnR { 0% { opacity: 0; transform: translate(-50%, -50%); } 10%, 70% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -50%); } }
 }
 </style>
 </head>
@@ -184,20 +203,20 @@ details.part[open] summary::after { content: " ▴"; }
       </div>
     </div>
     <div class="meters">
-      <div class="meter m-energy" id="mEnergy"><div class="lab">Энергия <em>100</em></div><div class="bar"><i></i></div></div>
-      <div class="meter m-cal" id="mCal"><div class="lab">Калории <em>100</em></div><div class="bar"><i></i></div></div>
-      <div class="meter m-water" id="mWater"><div class="lab">Вода <em>100</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-gel" id="mGel"><div class="lab">Гель <em>20 с</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-drink" id="mDrink"><div class="lab">Питьё <em>25 с</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-food" id="mFood"><div class="lab">Еда <em>30 с</em></div><div class="bar"><i></i></div></div>
       <div class="meter m-hr" id="mHr"><div class="lab">Пульс <em>90</em></div><div class="bar"><i></i></div></div>
-      <div class="meter m-cad" id="mCad"><div class="lab">Каденс <em>156</em></div><div class="bar"><i></i></div></div>
+      <div class="meter m-cad" id="mCad"><div class="lab">Каденс <em>160</em></div><div class="bar"><i></i></div></div>
     </div>
     <div class="route"><b id="hDistrict">Краснопресненская набережная</b><div class="track" id="track"><i id="hProg"></i></div></div>
     <div id="chips"></div>
   </div>
   <div class="hud-block" id="toasts"></div>
   <div class="hud-block" id="warns">
-    <div class="warn" id="wEnergy">Заканчивается энергия — съешь гель</div>
-    <div class="warn" id="wCal">Заканчивается запас калорий — съешь еду</div>
-    <div class="warn" id="wWater">Обезвоживание — выпей воду</div>
+    <div class="warn" id="wGel"></div>
+    <div class="warn" id="wDrink"></div>
+    <div class="warn" id="wFood"></div>
   </div>
 </div>
 
@@ -209,7 +228,7 @@ details.part[open] summary::after { content: " ▴"; }
   <div class="right-ctl">
   <div class="cadgrp">
     <button class="ctl" data-act="cadUp" aria-label="Каденс выше">+</button>
-    <span>каденс<b id="cCad">156</b></span>
+    <span>каденс<b id="cCad">160</b></span>
     <button class="ctl" data-act="cadDown" aria-label="Каденс ниже">−</button>
   </div>
   <button class="ctl jump" data-act="jump" aria-label="Прыжок"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg></button>
@@ -228,9 +247,11 @@ details.part[open] summary::after { content: " ▴"; }
     <p class="goal">Пробеги марафон по московским набережным — от Краснопресненской до Кремля. Обгоняй своих, вовремя ешь гели и пей воду, и финишируй с лучшим временем.</p>
     <dl class="how">
       <dt>Полосы</dt><dd>кнопки ◀ ▶, свайп или стрелки</dd>
-      <dt>Прыжок</dt><dd>тап в любом месте экрана, клик или пробел — через лужи, ограждения и собак</dd>
-      <dt>Каденс</dt><dd>старт с разминочного 156 — подними его кнопкой +, иначе так и проплетёшься. Выше — быстрее, но растут пульс и расход сил</dd>
-      <dt>Время</dt><dd>секунда игры — минута марафона. Сытый, напоённый и быстрый бегун ускоряется; быстрее 2:00:00 не пробежать</dd>
+      <dt>Прыжок</dt><dd>тап в любом месте экрана, клик или пробел — через лужи, фан-барьеры и собак. Волонтёра, фотографа и самокатчика — только обежать</dd>
+      <dt>Каденс</dt><dd>от 160 до 200 кнопками + и −: чем выше, тем быстрее. До 200 — только когда есть и гель, и питьё, и еда</dd>
+      <dt>Запасы</dt><dd>гель действует 20 с, питьё 25 с, еда 30 с. Пустой запас — каденс −10, за 5 с до конца будет предупреждение. Бустеры — кофеин, магний, пуэр — 5 с на каденсе 210</dd>
+      <dt>Столкновения</dt><dd>лужа сбивает каденс на 10, остальное — на 50, почти до шага; через 3 с темп вернётся</dd>
+      <dt>Время</dt><dd>секунда игры — минута марафона; быстрее 2:00:00 не пробежать</dd>
     </dl>
     <p class="note" id="gfxNote"></p>
     <div class="actions">
@@ -240,12 +261,13 @@ details.part[open] summary::after { content: " ▴"; }
     <details class="part" id="partBox">
       <summary id="partSummary">Соперники</summary>
       <p id="partStatus"></p>
-      <p>Загрузи выгрузку посещений с сайта Дасти (CSV или JSON). В игру попадут 100 участников клуба «Пыльные Гантели» с наибольшим числом посещённых лонгов. Сохраняются только ID, имя и число посещений.</p>
+      <p>Можно загрузить свою выгрузку посещений с сайта Дасти (CSV или JSON). В игру попадут 100 участников клуба «Пыльные Гантели» с наибольшим числом посещённых лонгов. Файл остаётся в браузере: сохраняются только ID, имя и число посещений.</p>
       <p>Подходит одна из структур: <code>id, name, club, long_runs_attended</code> или записи посещений <code>user_id, name, club, event_id, attended</code>.</p>
       <div class="row">
         <label class="btn-sec" for="fileInput">Загрузить файл участников</label>
         <input type="file" id="fileInput" accept=".csv,.json,text/csv,application/json">
-        <button class="btn-sec" id="btnDemo">Вернуть демо-список</button>
+        <button class="btn-sec" id="btnClub">Участники клуба</button>
+        <button class="btn-sec" id="btnDemo">Демо-список</button>
       </div>
       <p id="partError" class="err" role="alert"></p>
       <ol id="partList"></ol>
