@@ -48,6 +48,27 @@
   факты. Результатов за них не придумывать: в место и итоговое время звёзды не входят, считается только «позади N из 20».
   Их темп на трассе — игровой (быстрее 2:30), время звёзд нигде не показывается.
 
+## Шрифты (правило заказчика, 22.11.2026; действует для обоих чатов)
+- Запрещены шрифты, типичные для сайтов из ИИ-шаблонов, — везде: в заголовках, основном тексте, fallback-стеке CSS и в
+  `ctx.font` на canvas: Inter, Manrope, Montserrat, Poppins, DM Sans, Space Grotesk, Plus Jakarta Sans, Outfit, Geist,
+  Playfair Display, Roboto, Open Sans, Unbounded, Golos / Golos Text. Шрифт, часто встречающийся в ИИ-шаблонах, но не из
+  списка, — тоже запрещён. Не использовать шаблоны и штампы, по которым видно, что сайт сделан ИИ.
+- Разрешённые (все с кириллицей). Подбирать под идею проекта, а не первый из списка; перед использованием проверить
+  кириллицу на реальном тексте.
+  - Гротески: Sofia Sans (+ Condensed, Extra Condensed), Commissioner, Geologica, Ysabeau, Tenor Sans (заголовки), Arsenal,
+    Wix Madefor Display, Overpass, Exo 2, Jura, PT Root UI (Paratype, не на Google Fonts), Fixel (MacPaw, не на Google Fonts).
+  - Антиквы: Literata, Spectral, Brygada 1918, Alegreya, Vollkorn, Piazzolla, Source Serif 4, EB Garamond, Old Standard TT,
+    Ledger, Bona Nova, Alice, Kurale, Prata (только заголовки), Yeseva One (только заголовки).
+  - Брусковые: Podkova, Kelly Slab (заголовки).
+  - Декоративные (только заголовки и акценты): Forum, Oranienbaum, Ruslan Display, Philosopher.
+  - Моноширинные: Martian Mono, Victor Mono.
+  - Платные: Brownfox — Formular, Kazimir; Contrast Foundry — CoFo Sans, CoFo Robert, CoFo Gothic.
+- Проверенные пары: Sofia Sans Condensed (заголовки) + Literata (текст); Commissioner (заголовки) + Spectral (текст).
+- В конце стека — только системные шрифты: гротески `system-ui, -apple-system, "Segoe UI", sans-serif`;
+  антиквы `Georgia, "Times New Roman", serif`; моноширинные `ui-monospace, Menlo, Consolas, monospace`.
+- Сейчас игра правилу не соответствует: Unbounded и Golos Text (и Roboto в стеке) в `index.template.html`, `render2d.js`,
+  `render3d.js`, `textures.js`, `world3d.js` — замена за чатом «Дизайн».
+
 ## Принципы работы
 - Не заявлять, что что-то протестировано на устройстве, подключено к сайту клуба или опубликовано, если этого не было.
 - Трасса — художественная адаптация, не GPS-копия.
