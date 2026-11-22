@@ -423,8 +423,12 @@ details.part[open] summary::after { content: " ▴"; }
   /* Звёзды бега на последних километрах: известные бегуны России по открытым источникам (новости ВФЛА-стартов,
      Казанский и Московский марафоны, чемпионат России 2026). Подписи — только подтверждённые факты; результатов
      за них игра не придумывает: в место и итоговое время звёзды не входят. kind: sprint / mid / long — кого догнать проще. */
-  // секунды игры до финиша (× 60 = время марафона): звёзды 2:05–2:29, клуб равномерно 2:30–4:00
-  D.STARS_T = [125, 149];
+  // секунды игры до финиша (× 60 = время марафона). Звёзды — около идеального забега героя: без столкновений и со всеми
+  // ништяками бот бежит дистанцию за ~2:09:30 (калибровка на 100 сидах), у звёзд разброс ±3,5 мин → 2:06–2:13;
+  // идеальный герой обгоняет примерно половину, первым прийти почти невозможно. Клуб — равномерно 2:30–4:00.
+  D.STAR_IDEAL_T = 129.5;
+  D.STAR_ERR_T = 3.5;
+  D.STARS_T = [D.STAR_IDEAL_T - D.STAR_ERR_T, D.STAR_IDEAL_T + D.STAR_ERR_T];
   D.CLUB_T = [150, 240];
   D.STARS = [
     { name: 'Николай Грудковский', female: false, kind: 'sprint', tag: 'чемпион России на 100 м, 2026' },
@@ -737,7 +741,7 @@ details.part[open] summary::after { content: " ▴"; }
 
   // cad — насколько столкновение сбивает каденс; t — сколько секунд (по умолчанию D.HIT_T)
   D.OBST = {
-    puddle:       { label: 'ЛУЖА', pen: 5, cad: 10, h: 0.14, w: 1.3, jump: true },
+    puddle:       { label: 'ЛУЖА', pen: 5, cad: 20, h: 0.14, w: 1.3, jump: true },
     fanbarrier:   { label: 'ФАН-БАРЬЕР', pen: 8, cad: 50, h: 0.62, w: 1.3, jump: true },
     dog:          { label: 'СОБАКА', pen: 6, cad: 50, h: 0.55, w: 0.95, jump: true },
     photographer: { label: 'ФОТОГРАФ', pen: 7, cad: 50, h: 1.8, w: 0.7, jump: false },
@@ -1013,7 +1017,7 @@ details.part[open] summary::after { content: " ▴"; }
   const RL_MIN = D.RIVAL_LANE.left + 0.15, RL_MAX = D.RIVAL_LANE.left + 1.35; // центры бегунов на дорожке соперников
   // Общий масс-старт: все в коридоре перед стартовой аркой — впереди звёзды, за ними клуб по ожидаемому времени,
   // игрок в средней полосе за самыми быстрыми. Темп ровный: клуб равномерно финиширует за 2:30–4:00 (D.CLUB_T),
-  // звёзды — быстрее, за 2:05–2:29 (D.STARS_T); в место и итоговое время звёзды не входят.
+  // звёзды — около идеального времени героя, 2:06–2:13 (D.STARS_T); в место и итоговое время звёзды не входят.
   const starLook = (r, st) => ({ skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], longHair: st.female, female: st.female,
     shirt: '#ffffff', shorts: '#1e3a8a', stripe: '#ffd23f', cap: null, shoes: '#ffd23f', swim: false, sport: null, glasses: false });
   D.initRivals = function (participants, seed, rivalLane) {
@@ -1107,7 +1111,8 @@ details.part[open] summary::after { content: " ▴"; }
 
   function hit(g, o) {
     const def = D.OBST[o.type];
-    if (g.invulnT > 0) return;
+    // неуязвимость после столкновения 1 с; лужа в следующем ряду (через 0,4 с) уже засчитывается
+    if (g.invulnT > (o.type === 'puddle' ? 0.6 : 0)) return;
     if (g.pacerT > 0) {
       o.hit = true; g.invulnT = 0.6; g.stats.shield++;
       g.events.push({ kind: 'shield', type: o.type, title: 'ПЕЙСЕР ЗАЩИТИЛ', sub: def.label.toLowerCase() + ' без штрафа', good: true });

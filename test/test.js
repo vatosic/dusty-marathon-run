@@ -178,10 +178,10 @@ const cadOf = (g) => D.speedFactors(g).cad;
   const v = (c) => { const gg = rigged([]); gg.cad = c; gg.speed = 0; run(gg, 3); return gg.speed; };
   ok(v(200) > v(180) * 1.12 && v(180) > v(160) * 1.12, 'выше каденс — быстрее бег');
 
-  // столкновения: лужа −10, остальные −50; через 3 с — прежний каденс
+  // столкновения: лужа −20, остальные −50; через 3 с — прежний каденс
   g = rigged([mk('puddle', 12, 1)]); g.cad = 180; until(g, (gg) => gg.hitPenT > 0, 4);
-  ok(cadOf(g) === 170 && g.penalty === 5, 'лужа: каденс −10 и +5 с');
-  run(g, 2.9); ok(cadOf(g) === 170, 'лужа держит −10 почти 3 с');
+  ok(cadOf(g) === 160 && g.penalty === 5, 'лужа: каденс −20 и +5 с');
+  run(g, 2.9); ok(cadOf(g) === 160, 'лужа держит −20 почти 3 с');
   run(g, 0.2); ok(cadOf(g) === 180, 'через 3 с — прежний каденс');
   for (const t of ['fanbarrier', 'volunteer']) {
     g = rigged([mk(t, 12, 1)]); g.cad = 180; until(g, (gg) => gg.hitPenT > 0, 4);
@@ -207,6 +207,8 @@ const cadOf = (g) => D.speedFactors(g).cad;
   // неуязвимость: две лужи подряд
   g = rigged([mk('puddle', 30, 1), mk('puddle', 31.2, 1)]); run(g, 5);
   ok(g.stats.hits.puddle === 1, 'короткая неуязвимость после столкновения');
+  g = rigged([mk('puddle', 30, 1), mk('puddle', 47, 1)]); g.cad = 200; run(g, 6);
+  ok(g.stats.hits.puddle === 2, 'лужа в следующем ряду засчитывается и сразу после столкновения');
   // пейсер
   g = rigged([mk('pacer', 20, 1), mk('volunteer', 60, 1)]); run(g, 7);
   ok(g.stats.shield === 1 && !g.stats.hits.volunteer && g.penalty === 0 && g.hitPen === 0, 'пейсер поглощает столкновение');
@@ -220,7 +222,7 @@ const cadOf = (g) => D.speedFactors(g).cad;
     run(g, 0.2); ok(g.boostT === 0 && cadOf(g) === D.CAD.start, id + ': через 5 с — прежний каденс');
   }
   g = rigged([mk('boost', 15, 1, { variant: 'puer' }), mk('puddle', 40, 1)]); until(g, (gg) => gg.hitPenT > 0, 5);
-  ok(g.boostT === 0 && cadOf(g) === D.CAD.start - 10, 'столкновение прерывает бустер');
+  ok(g.boostT === 0 && cadOf(g) === D.CAD.start - D.OBST.puddle.cad, 'столкновение прерывает бустер');
   g = rigged([mk('fanbarrier', 15, 1), mk('boost', 18, 0, { variant: 'magnesium' })]);
   until(g, (gg) => gg.hitPenT > 0, 4); D.act(g, 'left'); until(g, (gg) => gg.boostT > 0, 3);
   ok(g.boostT > 0 && g.hitPen === 0 && cadOf(g) === 210, 'бустер снимает сбитый темп');
@@ -319,7 +321,7 @@ for (const mode of ['perfect', 'smart', 'passive']) {
     g.events.length = 0;
   }
   const behind = g.rivals.filter((rv) => rv.star && rv.z < D.WORLD_LEN).length;
-  ok(starEvents >= g.stats.stars && g.stats.stars === behind && (mode !== 'perfect' || behind >= 8), `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
+  ok(starEvents >= g.stats.stars && g.stats.stars === behind && (mode !== 'perfect' || behind >= 4), `обгоны звёзд засчитаны (${mode}: ${g.stats.stars})`);
   ok(g.total === 101 && g.finalPos >= 1 && g.finalPos <= 101, `звёзды не входят в место (${mode})`);
 }
 
