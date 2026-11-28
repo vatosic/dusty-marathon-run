@@ -346,8 +346,12 @@
   function obstacleSprite(c, o, t) {
     switch (o.type) {
       case 'puddle': {
-        c.fillStyle = 'rgba(52,104,150,0.85)'; ell(c, 0, -0.02, 0.68, 0.17); c.fill();
-        c.fillStyle = 'rgba(190,225,255,0.65)'; ell(c, -0.15, -0.05, 0.25, 0.04); c.fill();
+        // тёмная лужа с чёрной «подсветкой» (столб и ореол), как свечение у ништяков, только наоборот
+        const gr = c.createLinearGradient(0, 0, 0, -1.6); gr.addColorStop(0, 'rgba(0,0,0,0.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = gr; c.fillRect(-0.4, -1.6, 0.8, 1.6);
+        c.fillStyle = 'rgba(5,6,10,0.5)'; ell(c, 0, -0.02, 0.82, 0.22); c.fill();
+        c.fillStyle = 'rgba(13,20,32,0.95)'; ell(c, 0, -0.02, 0.68, 0.17); c.fill();
+        c.fillStyle = 'rgba(140,165,200,0.45)'; ell(c, -0.15, -0.05, 0.25, 0.04); c.fill();
         const rp = reduced ? 0.3 : (t * 0.8 + o.z) % 1;
         c.strokeStyle = 'rgba(255,255,255,' + (0.5 * (1 - rp)) + ')'; c.lineWidth = 0.025; ell(c, 0.2, -0.02, 0.1 + rp * 0.3, 0.03 + rp * 0.07); c.stroke();
         break;
@@ -412,9 +416,17 @@
   function sign(c, text, color) {
     c.fillStyle = '#6b5a4a'; c.fillRect(-0.03, -2.6, 0.06, 1.2);
     c.font = '800 0.2px "Unbounded", sans-serif';
-    const w = Math.max(0.9, c.measureText(text).width + 0.2);
+    let lines = [text];
+    if (text.length > 14 && text.indexOf(' ') > 0) { // длинный плакат — в две строки
+      let best = -1;
+      for (let i = 0; i < text.length; i++) if (text[i] === ' ' && (best < 0 || Math.abs(i - text.length / 2) < Math.abs(best - text.length / 2))) best = i;
+      lines = [text.slice(0, best), text.slice(best + 1)];
+      c.font = '800 0.15px "Unbounded", sans-serif';
+    }
+    const w = Math.max(0.9, Math.max.apply(null, lines.map((l) => c.measureText(l).width)) + 0.2);
     c.fillStyle = color || '#fff'; c.fillRect(-w / 2, -2.75, w, 0.42);
-    c.fillStyle = color === PINK ? '#fff' : INK; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, 0, -2.54);
+    c.fillStyle = color === PINK ? '#fff' : INK; c.textAlign = 'center'; c.textBaseline = 'middle';
+    lines.forEach((l, i) => c.fillText(l, 0, -2.54 + (i - (lines.length - 1) / 2) * 0.16));
     c.textBaseline = 'alphabetic';
   }
   function flag(c, t) {
@@ -995,8 +1007,9 @@
         case 'boat': at(o.x, -2.5); ctx.scale(Math.sign(o.v) || 1, 1); boat(ctx, o); ctx.restore(); break;
         case 'fan': {
           at(o.x); shadow(ctx, 0.3);
-          personFront(ctx, o.look, o.sign ? 'sign' : o.pose, time, o.phase);
-          if (o.sign) sign(ctx, o.sign, (o.phase * 10 | 0) % 3 === 0 ? PINK : (o.phase * 10 | 0) % 3 === 1 ? LIME : '#fff');
+          const sg = D.fanSign(o);
+          personFront(ctx, o.look, sg ? 'sign' : o.pose, time, o.phase);
+          if (sg) sign(ctx, sg, (o.phase * 10 | 0) % 3 === 0 ? PINK : (o.phase * 10 | 0) % 3 === 1 ? LIME : '#fff');
           else if (o.flag) flag(ctx, time + o.phase);
           ctx.restore(); break;
         }
@@ -1105,30 +1118,25 @@
   }
 
   function drawLabels(labels) {
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+    // как в Zwift: ровная строка на тёмной полупрозрачной плашке
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     labels.sort((a, b) => b.s - a.s); // ближние важнее
     const boxes = [];
     for (const lb of labels) {
-      const size = clamp(lb.s * 0.3, 10, 17);
+      const size = clamp(lb.s * 0.27, 9, 15);
       ctx.font = '700 ' + size + 'px "Golos Text", system-ui, sans-serif';
-      const w = ctx.measureText(lb.name).width;
-      const box = { x0: lb.x - w / 2 - 2, x1: lb.x + w / 2 + 2, y0: lb.y - size - 2, y1: lb.y + 4 };
+      const w = ctx.measureText(lb.name).width, padX = size * 0.55, bh = size * 1.55;
+      const box = { x0: lb.x - w / 2 - padX, x1: lb.x + w / 2 + padX, y0: lb.y - bh, y1: lb.y };
       if (boxes.some((b) => b.x0 < box.x1 && b.x1 > box.x0 && b.y0 < box.y1 && b.y1 > box.y0)) continue;
       boxes.push(box);
-      let x = lb.x - w / 2;
-      const amp = reduced ? 0 : size * 0.12;
       ctx.globalAlpha = lb.a;
-      ctx.lineWidth = Math.max(2.5, size * 0.24);
-      ctx.strokeStyle = 'rgba(30,11,46,0.85)'; ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
-      let i = 0;
-      for (const ch of lb.name) {
-        const cw = ctx.measureText(ch).width;
-        const y = lb.y + Math.sin(time * 4 + i * 0.55) * amp;
-        ctx.strokeText(ch, x, y); ctx.fillText(ch, x, y);
-        x += cw; i++;
-      }
+      ctx.fillStyle = 'rgba(14,10,24,0.62)';
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(box.x0, box.y0, box.x1 - box.x0, bh, bh / 2) : ctx.rect(box.x0, box.y0, box.x1 - box.x0, bh); ctx.fill();
+      if (lb.star) { ctx.fillStyle = '#ffd23f'; ctx.fillRect(box.x0 + bh * 0.3, box.y1 - 2, box.x1 - box.x0 - bh * 0.6, 2); } // звёзды бега — золотом
+      ctx.fillStyle = lb.star ? '#ffd23f' : '#ffffff';
+      ctx.fillText(lb.name, lb.x, lb.y - bh / 2 + 0.5);
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
 
   function drawEffects(g, dt) {

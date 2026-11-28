@@ -165,9 +165,15 @@
   function makeObstacle(type) {
     const grp = new THREE.Group();
     if (type === 'puddle') {
-      const p = new THREE.Mesh(new THREE.CircleGeometry(1, 28).rotateX(-PI / 2), new THREE.MeshPhongMaterial({ color: '#3c6f96', shininess: 120, specular: '#ffffff', transparent: true, opacity: 0.85 }));
+      const p = new THREE.Mesh(new THREE.CircleGeometry(1, 28).rotateX(-PI / 2), new THREE.MeshPhongMaterial({ color: '#0d1420', shininess: 140, specular: '#8fa6c8', transparent: true, opacity: 0.92 }));
       p.scale.set(0.7, 1, 0.24); p.position.y = 0.015; p.receiveShadow = true; grp.add(p);
-      const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.4, depthWrite: false }));
+      // чёрная «подсветка» как у ништяков: тёмный столб и тёмное кольцо — видно издалека, что это помеха
+      const dark = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 2.2, 14, 1, true).translate(0, 1.1, 0),
+        new THREE.MeshBasicMaterial({ map: D.Tex.glow('#000000'), color: '#000000', transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+      dark.scale.set(1, 1, 0.55); grp.add(dark);
+      const halo = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.18, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#05060a', transparent: true, opacity: 0.55, depthWrite: false }));
+      halo.scale.set(0.7, 1, 0.24); halo.position.y = 0.012; grp.add(halo);
+      const r = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 28).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: '#9fb4d6', transparent: true, opacity: 0.4, depthWrite: false }));
       r.position.y = 0.02; grp.add(r); grp.userData.ripple = r;
     } else if (type === 'fanbarrier') {
       // металлический фан-барьер с баннером клуба
@@ -339,15 +345,15 @@
     for (let i = lo; i < sc.fans.length && sc.fans[i].z < zTo && !crowd.full(); i++) {
       const f = sc.fans[i];
       if (f.zone && f.z > g.pz + 110) continue; // танцпол Лужников — только ближняя часть
-      const pose = f.sign ? 'sign' : f.pose;
+      const sign = D.fanSign(f), pose = sign ? 'sign' : f.pose;
       const ry = 2.5 + (f.phase - 3) * 0.08;
       crowd.add({ x: f.x, z: Z(f.z), ry }, f.look, (J) => D.Chars.posePerson(J, pose, time, f.phase));
-      if (f.sign && f.z < g.pz + 110) {
+      if (sign && f.z < g.pz + 110) {
         const s = take('sign', () => makeObstacle('sign'));
-        const tex = D.Tex.text(f.sign, { bg: (f.phase * 10 | 0) % 3 === 0 ? PINK : (f.phase * 10 | 0) % 3 === 1 ? LIME : '#ffffff', fg: (f.phase * 10 | 0) % 3 === 0 ? '#ffffff' : INK, w: 512, h: 184 });
+        const tex = D.Tex.text(sign, { wrap: true, bg: (f.phase * 10 | 0) % 3 === 0 ? PINK : (f.phase * 10 | 0) % 3 === 1 ? LIME : '#ffffff', fg: (f.phase * 10 | 0) % 3 === 0 ? '#ffffff' : INK, w: 512, h: 184 });
         if (s.userData.plane.material.map !== tex) { s.userData.plane.material.map = tex; s.userData.plane.material.needsUpdate = true; }
         s.position.set(f.x - 0.05, 2.05 + (f.pose === 'jump' ? 0 : 0), Z(f.z) + 0.05); s.rotation.y = -0.64;
-      } else if (f.flag && f.z < g.pz + 110) {
+      } else if (f.flag && !sign && f.z < g.pz + 110) {
         const fl = take('flag', () => makeObstacle('flag'));
         fl.position.set(f.x + 0.3, 0, Z(f.z)); fl.rotation.y = -0.6;
         if (!reduced) fl.userData.cloth.rotation.y = Math.sin(time * 3 + f.phase) * 0.25;
@@ -436,28 +442,27 @@
     const c = octx;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, W, H);
-    // имена: без плашек, лёгкая волна, ближние приоритетнее
-    c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.lineJoin = 'round';
+    // имена как в Zwift: ровная строка на тёмной полупрозрачной плашке, ближние приоритетнее
+    c.textAlign = 'center'; c.textBaseline = 'middle';
     labels.sort((a, b) => a.dz - b.dz);
     const boxes = [];
     for (const lb of labels) {
       const p = project(lb.x, lb.y, lb.z); if (!p) continue;
       const dist = lb.z - (g.pz - camState.back);
-      const size = clamp(H * 0.62 / dist * 0.55, 10, 17);
+      const size = clamp(H * 0.62 / dist * 0.5, 9, 15);
       c.font = '700 ' + size + 'px "Golos Text", system-ui, sans-serif';
-      const w = c.measureText(lb.name).width;
-      const box = { x0: p.x - w / 2 - 2, x1: p.x + w / 2 + 2, y0: p.y - size - 2, y1: p.y + 4 };
+      const w = c.measureText(lb.name).width, padX = size * 0.55, bh = size * 1.55;
+      const box = { x0: p.x - w / 2 - padX, x1: p.x + w / 2 + padX, y0: p.y - bh, y1: p.y };
       if (boxes.some((b) => b.x0 < box.x1 && b.x1 > box.x0 && b.y0 < box.y1 && b.y1 > box.y0)) continue;
       boxes.push(box);
       c.globalAlpha = clamp((70 - lb.dz) / 20, 0, 1);
-      c.lineWidth = Math.max(2.5, size * 0.24); c.strokeStyle = 'rgba(30,11,46,0.85)'; c.fillStyle = lb.star ? '#ffd23f' : '#ffffff'; // звёзды бега — золотом
-      let x = p.x - w / 2, i = 0;
-      const amp = reduced ? 0 : size * 0.12;
-      for (const ch of lb.name) {
-        const cw = c.measureText(ch).width, y = p.y + Math.sin(time * 4 + i * 0.55) * amp;
-        c.strokeText(ch, x, y); c.fillText(ch, x, y); x += cw; i++;
-      }
+      c.fillStyle = 'rgba(14,10,24,0.62)';
+      c.beginPath(); c.roundRect ? c.roundRect(box.x0, box.y0, box.x1 - box.x0, bh, bh / 2) : c.rect(box.x0, box.y0, box.x1 - box.x0, bh); c.fill();
+      if (lb.star) { c.fillStyle = '#ffd23f'; c.fillRect(box.x0 + bh * 0.3, box.y1 - 2, box.x1 - box.x0 - bh * 0.6, 2); } // звёзды бега — золотом
+      c.fillStyle = lb.star ? '#ffd23f' : '#ffffff';
+      c.fillText(lb.name, p.x, p.y - bh / 2 + 0.5);
     }
+    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     c.globalAlpha = 1;
     const ps = project(g.px, g.y + 1.2, g.pz);
     R.playerScreen = ps;
